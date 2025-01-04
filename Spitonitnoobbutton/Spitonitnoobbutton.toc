@@ -1,0 +1,45 @@
+## Interface: 11200
+## Title: Spitonit's Noob Button |cFFFF8080-Kiss my ass-|r
+## Notes: Warrior suite addon
+## Author: YourName
+## Version: 1.0
+## SavedVariables: WWIconSettings, ShieldEquippedCurrently, OffhandName, TwoHanderName, LastChanceHealthThreshold
+
+SNB.lua
+
+libs\AceLibrary\AceLibrary.lua
+libs\AceEvent-2.0\AceEvent-2.0.lua
+
+Utils\SweepingStrikes.lua
+Utils\Buffs.lua
+Utils\Stances.lua
+Utils\Talents.lua
+Utils\Utilities.lua
+Utils\Queues.lua
+
+Toolkit\RaidConsumes.lua
+Toolkit\DeathWishMacro.lua
+Toolkit\jujuflurry.lua
+Toolkit\ClosestAttack.lua
+Toolkit\Windfury.lua
+Toolkit\OffHand.lua
+Toolkit\EquipShieldAddon.lua
+
+Rotation\AOERotation.lua
+Rotation\ExecuteRotation.lua
+Rotation\SingleRotation.lua
+Rotation\Arms.lua
+Rotation\Execute.lua
+Rotation\DPS.lua
+Rotation\AOE.lua
+Rotation\TankRotation.lua
+
+Modules\Shieldbash.lua
+Modules\Pummel.lua
+Modules\ChargeIntercept.lua
+Modules\WWIcon.lua
+Modules\Bloodrage.lua
+Modules\Arms.lua
+Modules\Overpower.lua
+
+GUI\WWIcon.lua
