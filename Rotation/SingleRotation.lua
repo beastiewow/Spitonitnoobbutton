@@ -1,5 +1,3 @@
--- Queues.lua (General Utility Functions)
--- This lua is for tracking Heroic Strike and Cleave queuing 
 if not SNB then SNB = {} end -- Initialize the namespace if it doesn't exist
 
 -- Main function to determine which spell-casting function to call from /single
@@ -11,21 +9,17 @@ function SNB.CastBasedOnActiveFunction()
 
     if SNB.IsInDefensiveStance() then
         -- Tank rotation when in Defensive Stance
-        SNB.debug_print("Using Tank Single Target Rotation")
         SNB.CheckAndCastTankSingleTarget()
 
     elseif SNB.IsTwoHanderEquipped() then
         -- Cleave Build check for all modes when using a two-hander
         if hasCleaveBuild then
-            SNB.debug_print("Using Cleave Build Single Target Rotation")
             SNB.CheckAndCastSpell2handerCleaveBuildSingle()
         elseif hasMortalStrike then
             -- Use Mortal Strike Slam rotation if Mortal Strike talent is detected
-            SNB.debug_print("Using Arms Single Target Rotation with Slam")
             SNB.ArmsSingleTargetUnified()
         elseif hasBloodthirst then
             -- Two-Handed specific rotation with unified logic
-            SNB.debug_print("Using Unified Two-Handed Rotation")
             SNB.CheckAndCastSpell2handerUnified()
         end
 
@@ -35,11 +29,9 @@ function SNB.CastBasedOnActiveFunction()
 
         if SNB.IsMainHandEnchantActive() then
             -- Boss Mode with Windfury
-            SNB.debug_print("Boss Mode with Windfury in Berserker Stance")
             SNB.CheckAndCastSpellUnified()
         else
             -- Farm Mode without Windfury
-            SNB.debug_print("Farm Mode without Windfury in Berserker Stance")
             SNB.CheckAndCastSpellUnified()
         end
 
@@ -49,11 +41,9 @@ function SNB.CastBasedOnActiveFunction()
 
         if SNB.IsMainHandEnchantActive() then
             -- Boss Mode with Windfury in Battle Stance
-            SNB.debug_print("Boss Mode with Windfury in Battle Stance")
             SNB.CheckAndCastSpellUnified()
         else
             -- Farm Mode without Windfury in Battle Stance
-            SNB.debug_print("Farm Mode without Windfury in Battle Stance")
             SNB.CheckAndCastSpellUnified()
         end
     end
@@ -68,16 +58,12 @@ function SNB.ToggleWhirlwindMode()
     if not SNB.IsMainHandEnchantActive() then
         -- Farm Mode
         if SNB.isWhirlwindMode then
-            SNB.debug_print("Switched to Farm Mode with Whirlwind.")
         else
-            SNB.debug_print("Switched to Farm Mode without Whirlwind.")
         end
     else
         -- Boss Mode
         if SNB.isWhirlwindMode then
-            SNB.debug_print("Switched to Boss Mode with Whirlwind.")
         else
-            SNB.debug_print("Switched to Boss Mode without Whirlwind.")
         end
     end
 end
@@ -91,16 +77,12 @@ function SNB.ToggleOverpowerMode()
     if not SNB.IsMainHandEnchantActive() then
         -- Farm Mode
         if SNB.isOverpowerMode then
-            SNB.debug_print("Switched to Farm Mode with Overpower.")
         else
-            SNB.debug_print("Switched to Farm Mode without Overpower.")
         end
     else
         -- Boss Mode
         if SNB.isOverpowerMode then
-            SNB.debug_print("Switched to Boss Mode with Overpower.")
         else
-            SNB.debug_print("Switched to Boss Mode without Overpower.")
         end
     end
 end
@@ -113,15 +95,32 @@ SlashCmdList["TOGGLEOVERPOWER"] = SNB.ToggleOverpowerMode
 -- Slash command to swap to Farm mode
 function SNB.SwapToFarmMode()
     SNB.isFarmMode = true
-    SNB.debug_print("Switched to Farm mode. Using current Whirlwind setting.")
 end
 
 -- Slash command to reset from Farm mode and allow Whirlwind/Single toggle for Boss Mode
 function SNB.ExitFarmMode()
     if SNB.isFarmMode then
         SNB.isFarmMode = false
-        SNB.debug_print("Exited Farm mode. Using current Whirlwind setting for Boss mode.")
     end
+end
+
+-- We assume "GetTime()" exists in Turtle WoW 1.12.1 and returns
+-- a float representing seconds since the client started.
+
+local lastCastTime = 0  -- Tracks the last execution timestamp
+local throttleDelay = 0.1  -- 0.2s delay (adjust if desired)
+
+function SNB.CastBasedOnActiveFunction_Throttled()
+    local currentTime = GetTime()
+    if (currentTime - lastCastTime) < throttleDelay then
+        -- Too soon, skip
+        return
+    end
+    -- Update the last cast time
+    lastCastTime = currentTime
+
+    -- Now safely call your normal rotation
+    SNB.CastBasedOnActiveFunction()
 end
 
 -- Slash command to toggle Whirlwind mode (or Single-Target mode)
@@ -139,9 +138,9 @@ SlashCmdList["SWAPFARM"] = SNB.SwapToFarmMode
 SLASH_EXITFARM1 = "/exitfarm"
 SlashCmdList["EXITFARM"] = SNB.ExitFarmMode
 
--- Slash command to cast based on the active mode
+-- Slash command to cast based on the active mode with throttling
 SLASH_SINGLE1 = "/single"
-SlashCmdList["SINGLE"] = SNB.CastBasedOnActiveFunction
+SlashCmdList["SINGLE"] = SNB.CastBasedOnActiveFunction_Throttled
 
 -- Register the slash command /tanksingletarget
 SLASH_TANKSINGLE1 = "/tanksingletarget"

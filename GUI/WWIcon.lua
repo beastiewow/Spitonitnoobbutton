@@ -11,7 +11,7 @@ WWIconSettings = WWIconSettings or {
 SNB = SNB or {}
 SNB.isWhirlwindMode = true  -- Initialize whirlwind mode as active
 SNB.isOverpowerMode = false  -- Initialize overpower mode as inactive
-SNB.isSweepingStrikesMode = true -- Initialize Sweeping Strikes Mode as active
+SNB.isSweepingStrikesMode = true -- Initialize Sweeping Strikes Mode as inactive
 
 -- Create the Whirlwind button frame
 local whirlwindButton = CreateFrame("Button", "WhirlwindButton", UIParent)
@@ -38,17 +38,17 @@ local overpowerTexture = overpowerButton:CreateTexture(nil, "BACKGROUND")
 overpowerTexture:SetTexture("Interface\\Icons\\Ability_MeleeDamage")  -- Overpower icon path
 overpowerTexture:SetAllPoints(overpowerButton)  -- Fill the button with the texture
 
--- Create the Sweeping Strikes button
+-- Sweeping Strikes button settings
 local sweepingFrame = CreateFrame("Button", "SweepingStrikesIconFrame", UIParent)
 sweepingFrame:SetWidth(WWIconSettings.size)  -- Set width
 sweepingFrame:SetHeight(WWIconSettings.size)  -- Set height
-sweepingFrame:SetPoint("LEFT", overpowerButton, "RIGHT", 0, 0)  -- Anchor to the right of Overpower button
+sweepingFrame:SetPoint("LEFT", overpowerButton, "RIGHT", 0, 0)  -- Position next to Overpower button
 sweepingFrame:SetMovable(true)
 sweepingFrame:EnableMouse(true)
 
--- Add the Sweeping Strikes icon texture
+-- Sweeping Strikes icon texture
 local sweepingTexture = sweepingFrame:CreateTexture(nil, "BACKGROUND")
-sweepingTexture:SetTexture("Interface\\Icons\\Ability_Rogue_SliceDice")  -- Sweeping Strikes icon path
+sweepingTexture:SetTexture("Interface\\Icons\\Ability_Rogue_SliceDice")  -- Sweeping Strikes icon
 sweepingTexture:SetAllPoints(sweepingFrame)
 
 -- Function to update the visibility of the Whirlwind icon based on Whirlwind mode
@@ -63,37 +63,22 @@ end
 -- Function to update the Overpower button icon based on Overpower mode
 function SNB.UpdateOverpowerButton()
     if SNB.isOverpowerMode then
-        overpowerButton:SetAlpha(1.0)  -- Full opacity
+        overpowerButton:SetAlpha(1.0)  -- Full opacity when Overpower mode is active
     else
-        overpowerButton:SetAlpha(0.3)  -- Faded opacity
+        overpowerButton:SetAlpha(0.3)  -- Faded opacity when Overpower mode is inactive
     end
 end
 
--- Function to dynamically update Sweeping Strikes button visibility based on talent changes
-local function CheckSweepingStrikesMessage(message)
-    if message == "You have learned a new ability: Sweeping Strikes." then
-        sweepingFrame:Show()
-        sweepingFrame:SetAlpha(1.0)  -- Full opacity by default when learned
-        print("Sweeping Strikes ability learned. Button is now visible.")
-    elseif message == "You have unlearned Sweeping Strikes." then
-        sweepingFrame:Hide()
-        print("Sweeping Strikes ability unlearned. Button is now hidden.")
-    end
+-- Check if player is talented into Sweeping Strikes
+local function IsSweepingStrikesTalented()
+    local _, _, _, _, rank = GetTalentInfo(1, 13) -- 1 = Arms tree, 11 = Sweeping Strikes
+    return rank > 0
 end
 
--- Hook into the chat system to listen for relevant messages
-local sweepingStrikesMessageFrame = CreateFrame("Frame")
-sweepingStrikesMessageFrame:RegisterEvent("CHAT_MSG_SYSTEM")
-sweepingStrikesMessageFrame:SetScript("OnEvent", function(_, _, message)
-    CheckSweepingStrikesMessage(message)
-end)
-
--- Function to update Sweeping Strikes button visibility based on talent
+-- Function to toggle Sweeping Strikes visibility
 function SNB.UpdateSweepingStrikesButton()
-    local _, _, _, _, rank = GetTalentInfo(1, 13) -- 1 = Arms tree, 13 = Sweeping Strikes
-    if rank > 0 then
+    if IsSweepingStrikesTalented() then
         sweepingFrame:Show()
-        sweepingFrame:SetAlpha(1.0)
     else
         sweepingFrame:Hide()
     end
@@ -113,12 +98,24 @@ end
 
 -- Button click functionality to toggle Sweeping Strikes mode
 local function ToggleSweepingStrikesFromButton()
-    SNB.isSweepingStrikesMode = not SNB.isSweepingStrikesMode
+    SNB.ToggleSweepingStrikesMode()
     if SNB.isSweepingStrikesMode then
-        sweepingFrame:SetAlpha(1.0)  -- Full opacity
+        sweepingFrame:SetAlpha(1.0)  -- Full opacity when active
     else
-        sweepingFrame:SetAlpha(0.3)  -- Faded opacity
+        sweepingFrame:SetAlpha(0.3)  -- Faded opacity when inactive
     end
+end
+
+-- Manually show or hide the Sweeping Strikes button
+function SNB.ShowSweepingStrikesButton()
+    sweepingFrame:Show()
+    sweepingFrame:SetAlpha(1.0)
+    print("Sweeping Strikes button is now visible.")
+end
+
+function SNB.HideSweepingStrikesButton()
+    sweepingFrame:Hide()
+    print("Sweeping Strikes button is now hidden.")
 end
 
 -- Enable dragging with right click for the Whirlwind button
@@ -131,6 +128,7 @@ end)
 
 whirlwindButton:SetScript("OnDragStop", function()
     whirlwindButton:StopMovingOrSizing()  -- Stop moving
+    -- Save the new position
     local point, _, _, xOfs, yOfs = whirlwindButton:GetPoint()
     WWIconSettings.point = point
     WWIconSettings.xOfs = xOfs
@@ -138,38 +136,58 @@ whirlwindButton:SetScript("OnDragStop", function()
 end)
 
 -- Set the click behavior for the Whirlwind button
-whirlwindButton:RegisterForClicks("LeftButtonUp")
-whirlwindButton:SetScript("OnClick", SNB.ToggleWhirlwindMode)
+whirlwindButton:RegisterForClicks("LeftButtonUp")  -- Listen for left-click release
+whirlwindButton:SetScript("OnClick", SNB.ToggleWhirlwindMode)  -- Call the toggle function on click
 
 -- Set the click behavior for the Overpower button
-overpowerButton:RegisterForClicks("LeftButtonUp")
-overpowerButton:SetScript("OnClick", SNB.ToggleOverpowerMode)
+overpowerButton:RegisterForClicks("LeftButtonUp")  -- Listen for left-click release
+overpowerButton:SetScript("OnClick", SNB.ToggleOverpowerMode)  -- Call the toggle function on click
 
 -- Initialize Sweeping Strikes button
 sweepingFrame:RegisterForClicks("LeftButtonUp")
 sweepingFrame:SetScript("OnClick", ToggleSweepingStrikesFromButton)
+sweepingFrame:SetScript("OnShow", function()
+    if SNB.isSweepingStrikesMode then
+        sweepingFrame:SetAlpha(1.0)
+    else
+        sweepingFrame:SetAlpha(0.3)
+    end
+end)
 
--- Function to resize all buttons
+-- Function to resize the buttons
 local function ResizeButtons(size)
-    size = tonumber(size)
+    size = tonumber(size)  -- Ensure the input is treated as a number
     if size and size >= 16 and size <= 128 then
         whirlwindButton:SetWidth(size)
         whirlwindButton:SetHeight(size)
         overpowerButton:SetWidth(size)
         overpowerButton:SetHeight(size)
-        sweepingFrame:SetWidth(size)
         sweepingFrame:SetHeight(size)
-        WWIconSettings.size = size
+        sweepingFrame:SetWidth(size)
+        WWIconSettings.size = size  -- Save size to variable
         print(string.format("Buttons resized to: %d x %d", size, size))
     else
         print("Invalid size! Please enter a number between 16 and 128.")
     end
 end
 
--- Slash command to scale, lock/unlock, hide/show buttons
+-- Function to hide all icons
+function SNB.HideIcons()
+    whirlwindButton:Hide()
+    overpowerButton:Hide()
+    print("Icons are now hidden.")
+end
+
+-- Function to show all icons
+function SNB.ShowIcons()
+    whirlwindButton:Show()
+    overpowerButton:Show()
+    print("Icons are now visible.")
+end
+
+-- Slash command to scale, lock/unlock, hide/show all buttons
 SLASH_WWICON1 = "/wwicon"
 SlashCmdList["WWICON"] = function(input)
-    local scale = tonumber(input)
     if input == "lock" then
         WWIconSettings.locked = true
         print("Icons are now locked.")
@@ -186,30 +204,44 @@ SlashCmdList["WWICON"] = function(input)
         overpowerButton:Show()
         sweepingFrame:Show()
         print("Icons are now visible.")
-    elseif scale then
-        ResizeButtons(scale)
+    elseif input == "ssshow" then
+        SNB.ShowSweepingStrikesButton()
+    elseif input == "sshide" then
+        SNB.HideSweepingStrikesButton()
     else
-        print("Please enter a valid command: lock, unlock, hide, show, or a number between 16 and 128 to resize.")
+        local size = tonumber(input)
+        if size then
+            ResizeButtons(size)
+        else
+            print("Please enter a valid command: lock, unlock, hide, show, ssshow, sshide, or a size between 16 and 128.")
+        end
     end
 end
 
--- Initialize buttons on addon load
+-- Create a slash command for resizing
+SLASH_WWRESIZE1 = "/wwresize"
+SlashCmdList["WWRESIZE"] = function(input)
+    ResizeButtons(input)
+end
+
+-- Initialize saved variables on addon load
 local function InitializeButtons()
     whirlwindButton:SetWidth(WWIconSettings.size)
     whirlwindButton:SetHeight(WWIconSettings.size)
     whirlwindButton:SetPoint(WWIconSettings.point, UIParent, WWIconSettings.point, WWIconSettings.xOfs, WWIconSettings.yOfs)
     overpowerButton:SetWidth(WWIconSettings.size)
     overpowerButton:SetHeight(WWIconSettings.size)
-    sweepingFrame:SetWidth(WWIconSettings.size)
     sweepingFrame:SetHeight(WWIconSettings.size)
-    overpowerButton:SetPoint("LEFT", whirlwindButton, "RIGHT", 0, 0)
-    sweepingFrame:SetPoint("LEFT", overpowerButton, "RIGHT", 0, 0)
-    SNB.UpdateWhirlwindIcon()
-    SNB.UpdateOverpowerButton()
+    sweepingFrame:SetWidth(WWIconSettings.size)
+    overpowerButton:SetPoint("LEFT", whirlwindButton, "RIGHT", 0, 0)  -- Anchor to the right of Whirlwind button
+    sweepingFrame:SetPoint("LEFT", overpowerButton, "RIGHT", 0, 0) -- Anchor to the right of Overpower Button
+    SNB.UpdateWhirlwindIcon()  -- Ensure visibility matches the current mode
+    SNB.UpdateOverpowerButton()  -- Ensure visibility matches the current mode
     SNB.UpdateSweepingStrikesButton()
+    print("Button settings loaded.")
 end
 
--- Hook PLAYER_LOGIN to ensure settings are applied after UI load
+-- Hook for PLAYER_LOGIN to ensure settings are applied after UI load
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", InitializeButtons)

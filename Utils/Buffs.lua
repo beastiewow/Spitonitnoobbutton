@@ -29,13 +29,10 @@ end
 function SNB.NeedsRecastBattleShout()
     local timeLeft = SNB.GetBattleShoutTimeLeft()
     if timeLeft and timeLeft < 10 then
-        SNB.debug_print("Battle Shout needs recast: Time left is " .. tostring(timeLeft) .. " seconds")
         return true
     elseif not timeLeft then
-        SNB.debug_print("Battle Shout needs recast: Not found")
         return true
     end
-    SNB.debug_print("Battle Shout does not need recast: Time left is " .. tostring(timeLeft) .. " seconds")
     return false
 end
 
@@ -43,7 +40,6 @@ end
 function SNB.CanCastBattleShout()
     local currentTime = GetTime()
     local canCast = (currentTime - SNB.lastBattleShoutTime) >= SNB.BATTLE_SHOUT_COOLDOWN
-    SNB.debug_print("Can cast Battle Shout: " .. tostring(canCast))
     return canCast
 end
 

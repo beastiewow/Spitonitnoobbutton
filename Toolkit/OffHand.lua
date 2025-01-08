@@ -8,7 +8,6 @@ local function OnAddonLoaded(self, event, addonName)
         -- Ensure the saved variable is initialized
         if not OffhandName.name then
             OffhandName.name = nil
-            print("No offhand weapon name saved. Please set an offhand weapon using '/offhand [name]'.")
         else
             -- Optional: Debug print to confirm that it loaded
             -- debug_print("Loaded saved offhand weapon name: " .. OffhandName.name)

@@ -16,7 +16,6 @@ function SNB.CastBasedOnAOEFunction()
     elseif SNB.IsTwoHanderEquipped() then
         -- Cleave Build check for all modes when using a two-hander
         if hasCleaveBuild then
-            SNB.debug_print("Using Cleave Build AOE Rotation")
             SNB.CheckAndCastSpell2handerCleaveBuildAOE()
         elseif hasMortalStrike then
             -- Use Mortal Strike AOE rotation if Mortal Strike talent is detected
@@ -33,7 +32,6 @@ function SNB.CastBasedOnAOEFunction()
         if not SNB.IsMainHandEnchantActive() then
             -- AOE rotation without Windfury
             if hasCleaveBuild then
-                SNB.debug_print("Using Cleave Build AOE Rotation without Windfury")
                 SNB.CheckAndCastSpell2handerCleaveBuildAOE()
             elseif hasMortalStrike then
                 SNB.ArmsAOERotation()  -- Mortal Strike-based AOE rotation without Windfury
@@ -43,7 +41,6 @@ function SNB.CastBasedOnAOEFunction()
         else
             -- AOE rotation with Windfury
             if hasCleaveBuild then
-                SNB.debug_print("Using Cleave Build AOE Rotation with Windfury")
                 SNB.CheckAndCastSpell2handerCleaveBuildAOE()
             elseif hasMortalStrike then
                 SNB.ArmsAOERotation()  -- Mortal Strike-based AOE rotation with Windfury
@@ -54,6 +51,26 @@ function SNB.CastBasedOnAOEFunction()
     end
 end
 
--- Slash command to cast AOE based on the player's stance
+-- We assume "GetTime()" exists in Turtle WoW 1.12.1 and returns
+-- a float representing seconds since the client started.
+
+local lastAOECallTime = 0
+local aoeThrottleDelay = 0.1  -- 0.2 seconds; adjust to your preference
+
+-- Throttled function for AOE
+function SNB.CastBasedOnAOEFunction_Throttled()
+    local currentTime = GetTime()
+    if (currentTime - lastAOECallTime) < aoeThrottleDelay then
+        -- Too soon, skip this call
+        return
+    end
+    -- Update the last call time
+    lastAOECallTime = currentTime
+
+    -- Perform the normal AOE logic
+    SNB.CastBasedOnAOEFunction()
+end
+
+-- Replace the slash command to point to the throttled function
 SLASH_AOE1 = "/aoe"
-SlashCmdList["AOE"] = SNB.CastBasedOnAOEFunction
+SlashCmdList["AOE"] = SNB.CastBasedOnAOEFunction_Throttled

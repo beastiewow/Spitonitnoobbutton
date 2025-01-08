@@ -17,7 +17,6 @@ end
 function SNB.IsOverpowerAvailable()
     local op_spellID = 11585
     if op_spellID == nil then
-        SNB_debug_print("Overpower spell not found.")
         return false
     end
 
@@ -27,10 +26,8 @@ function SNB.IsOverpowerAvailable()
     if op_start > 0 then
         local cooldownLeft = (op_start + op_dur) - GetTime()
         if cooldownLeft > 1 then
-            SNB_debug_print("Overpower is not available because it is on cooldown. Time remaining: " .. string.format("%.1f", cooldownLeft) .. " seconds.")
             return false
         else
-            SNB_debug_print("Overpower cooldown almost ready with " .. string.format("%.1f", cooldownLeft) .. " seconds remaining.")
         end
     end
 
@@ -38,15 +35,12 @@ function SNB.IsOverpowerAvailable()
     if dodgeFlag then
         local timeLeft = SNB.overpowerProcEndTime - GetTime()
         if timeLeft > 0 then
-            SNB_debug_print("Overpower is available for " .. string.format("%.1f", timeLeft) .. " seconds!")
             return true
         else
-            SNB_debug_print("Overpower proc expired.")
             dodgeFlag = false  -- Reset dodge flag after timer expires
             return false
         end
     else
-        SNB_debug_print("Overpower is not available due to no dodges.")
     end
 
     return false
@@ -60,9 +54,7 @@ function SNB.CheckOverpowerStatus()
     else
         local op_start, op_dur = GetSpellCooldown(GetSpellID("Overpower"), BOOKTYPE_SPELL)
         if op_start > 0 then
-            SNB_print("Overpower is not available because it is on cooldown.")
         else
-            SNB_print("Overpower is not available due to no dodges.")
         end
     end
 end
@@ -71,14 +63,11 @@ end
 function SNB.CastOverpower()
     if SNB.IsOverpowerAvailable() then
         CastSpellByName("Overpower")
-        SNB_print("Casting Overpower!")
         dodgeFlag = false  -- Reset dodge flag after casting Overpower
     else
         local op_start, op_dur = GetSpellCooldown(GetSpellID("Overpower"), BOOKTYPE_SPELL)
         if op_start > 0 then
-            SNB_print("Overpower is not available because it is on cooldown.")
         else
-            SNB_print("Overpower is not available due to no dodges.")
         end
     end
 end
@@ -116,21 +105,17 @@ f:SetScript("OnEvent", function()
     local message = arg1  -- Capture the message in case it's not explicitly passed
 
     if not message then
-        SNB_debug_print("Error: arg1 (message) is nil for the current event.")
         return
     end
 
     local event = event -- Capture the event name explicitly for clarity
-    SNB_debug_print("Event triggered: " .. event .. " with message: " .. message)
 
     if event == "CHAT_MSG_COMBAT_SELF_MISSES" then
         local a, b, str = string.find(message, "You attack. (.+) dodges.")
         if a then
             dodgeFlag = true  -- Set the dodge flag to true when a dodge is detected
             SNB.overpowerProcEndTime = GetTime() + 4  -- Set proc end time to 4 seconds from now
-            SNB_debug_print("Detected dodge in CHAT_MSG_COMBAT_SELF_MISSES for target: " .. str)
         else
-            SNB_debug_print("No dodge found in CHAT_MSG_COMBAT_SELF_MISSES.")
         end
 
     elseif event == "CHAT_MSG_SPELL_SELF_DAMAGE" or event == "CHAT_MSG_SPELL_DAMAGESHIELDS_ON_SELF" then
@@ -138,9 +123,7 @@ f:SetScript("OnEvent", function()
         if a then
             dodgeFlag = true  -- Set the dodge flag to true when a dodge is detected
             SNB.overpowerProcEndTime = GetTime() + 4  -- Set proc end time to 4 seconds from now
-            SNB_debug_print("Detected dodge in " .. event .. " for spell: " .. str)
         else
-            SNB_debug_print("No dodge found in " .. event .. ".")
         end
     end
 end)
