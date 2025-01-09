@@ -82,12 +82,14 @@ function SNB.ArmsExecuteHS()
     if isBoss then
         -- Target between 5% and 20% HP
         if targetHealthPercent <= 20 then
+            SpellStopCasting("Slam")
             CastSpellByName("Execute")
             return
         end
 
         -- Target at or below 5% HP
         if targetHealthPercent <= 5 and rage >= 15 then
+            SpellStopCasting("Slam")
             CastSpellByName("Execute")
             return
         end
@@ -95,6 +97,7 @@ function SNB.ArmsExecuteHS()
 
     -- Non-boss logic
     if not isBoss and targetHealthPercent <= 20 and rage >= 15 then
+        SpellStopCasting("Slam")
         CastSpellByName("Execute")
         return
     end
