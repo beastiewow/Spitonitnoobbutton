@@ -35,19 +35,19 @@ function SNB.ArmsSingleTargetUnified()
     end
 
     -- Mortal Strike logic
-    if rage >= 30 and msCooldown <= 0 then
+    if rage >= 30 and msCooldown <= 0 and (st_timer < 1.9 or st_timer > 3.5) then
         CastSpellByName("Mortal Strike")
         return
     end
 
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 and (st_timer < 1.9 or st_timer > 3.5) then
         CastSpellByName("Whirlwind")
         return
     end
 
     -- Slam logic
-    if rage >= 30 and (st_timer < 3.4 and st_timer > 1.4) then
+    if rage >= 15 and st_timer > 1.9 and st_timer < 3.5 then
         CastSpellByName("Slam")
     end
 
@@ -86,31 +86,23 @@ function SNB.ArmsAOERotation()
     -- 1. Whirlwind if off cooldown and 25+ rage
     if rage >= 25 and wwCooldown <= 0 then
         CastSpellByName("Whirlwind")
-    elseif rage >= 70 and msCooldown <= 0 and wwCooldown > 1.5 then
+    elseif rage >= 55 and msCooldown <= 0 then
         CastSpellByName("Mortal Strike")
-    elseif rage >= 30 and wwCooldown >=0.2 and st_timer > 1.2 then
-        -- Condition 1: High rage and both Mortal Strike and Whirlwind are close to coming off cooldown
-        CastSpellByName("Slam")
+    elseif rage >= 30 and msCooldown <= 0 and wwCooldown > 4 then
+        CastSpellByName("Mortal Strike")
     end
 
     -- Cleave if 30+ rage, swing timer is more than 0.5 seconds, and Cleave is not currently queued
     if not SNB.IsCleaveQueued() then
         -- 1. Cancel if both MS and WW cooldowns are <= 1.5, less than 70 rage, and swing timer <= 0.5
-        if wwCooldown > 3.5 and rage > 90 and st_timer > 0.5 then
+        if rage > 90 then
             CastSpellByName("Cleave")
-        elseif rage > 70 and st_timer > 0.5 and wwCooldown > 5.5 then
+        elseif rage > 70 and wwCooldown > 5.5 then
             CastSpellByName("Cleave")
-        end
-    end
-
-
-    -- Cleave cancel conditions
-    if SNB.IsCleaveQueued() then
-        -- 1. Cancel if both MS and WW cooldowns are <= 1.5, less than 70 rage, and swing timer <= 0.5
-        if wwCooldown < 1.5 and rage < 35 and st_timer < 0.5 then
-            SpellStopCasting("Cleave")
-        elseif rage < 20 and st_timer < 0.5 then
-            SpellStopCasting("Cleave")
+        elseif rage > 50 and wwCooldown > 5.5 and msCooldown > 2.5 then
+            CastSpellByName("Cleave")
+        elseif rage > 20 and wwCooldown > 5.5 and msCooldown > 5 then
+            CastSpellByName("Cleave")
         end
     end
 end
