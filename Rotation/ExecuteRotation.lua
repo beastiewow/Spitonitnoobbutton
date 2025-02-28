@@ -2,14 +2,21 @@
 -- This lua is for tracking Heroic Strike and Cleave queuing 
 if not SNB then SNB = {} end -- Initialize the namespace if it doesn't exist
 
--- Function to execute the correct function based on the current mode (Cleave or Bloodthirst/Execute), adapted for Arms or Fury spec
+-- Ensure pfUI's libcast is checked globally (at the top of your addon)
+if not pfUI or not pfUI.api or not pfUI.api.libcast then
+    DEFAULT_CHAT_FRAME:AddMessage("SNB: pfUI libcast not found! Using basic Execute behavior without Slam tracking.")
+end
+
+local libcast = pfUI and pfUI.api and pfUI.api.libcast
+local player = UnitName("player")
+
+-- Function to execute the correct function based on mode and spec
 function SNB.ExecuteMacro()
     -- Check for Mortal Strike talent to determine Arms spec
     local hasMortalStrike = SNB.HasTalent("Mortal Strike")
 
     if SNB.isCleaveMode then
         SNB.debug_print("Executing Cleave mode")
-
         -- Use Arms Cleave function if Mortal Strike talent is detected; otherwise, use default Execute Cleave function
         if hasMortalStrike then
             SNB.ArmsExecuteCleave()
@@ -18,10 +25,13 @@ function SNB.ExecuteMacro()
         end
     else
         SNB.debug_print("Executing Execute mode")
-
         -- Use Arms Execute function with Heroic Strike if Mortal Strike is detected; otherwise, use default Bloodthirst/Execute function
         if hasMortalStrike then
-            SNB.ArmsExecuteHS()
+            if libcast then
+                SNB.ArmsExecuteHS() -- Use version with Slam tracking if pfUI libcast is available
+            else
+                SNB.ArmsExecuteHSNoSlamTrack() -- Fallback to original version without Slam tracking
+            end
         else
             SNB.CheckAndCastBloodthirstOrExecute()
         end
