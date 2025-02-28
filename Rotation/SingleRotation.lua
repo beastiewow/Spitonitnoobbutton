@@ -7,44 +7,23 @@ function SNB.CastBasedOnActiveFunction()
     local hasBloodthirst = SNB.HasTalent("Bloodthirst")
     local hasCleaveBuild = SNB.HasCleaveBuild()
 
-    if SNB.IsInDefensiveStance() then
-        -- Tank rotation when in Defensive Stance
-        SNB.CheckAndCastTankSingleTarget()
-
-    elseif SNB.IsTwoHanderEquipped() then
-        -- Cleave Build check for all modes when using a two-hander
+    if hasBloodthirst then
+        -- Bloodthirst specialization logic based on stance
+        if SNB.IsInDefensiveStance() then
+            SNB.CheckAndCastTankSingleTarget()
+        elseif SNB.IsInBerserkerStance() then
+            SNB.EquipOffhandIfInBerserkerStance()  -- Equip offhand for dual-wielding
+            SNB.CheckAndCastSpellUnified()
+        elseif SNB.IsInBattleStance() then
+            SNB.EquipOffhandIfInBerserkerStance()  -- Equip offhand for dual-wielding
+            SNB.CheckAndCastSpellUnified()
+        end
+    elseif hasMortalStrike then
+        -- Mortal Strike specialization logic
         if hasCleaveBuild then
             SNB.CheckAndCastSpell2handerCleaveBuildSingle()
-        elseif hasMortalStrike then
-            -- Use Mortal Strike Slam rotation if Mortal Strike talent is detected
+        else
             SNB.ArmsSingleTargetUnified()
-        elseif hasBloodthirst then
-            -- Two-Handed specific rotation with unified logic
-            SNB.CheckAndCastSpell2handerUnified()
-        end
-
-    elseif SNB.IsInBerserkerStance() then
-        -- Berserker Stance logic
-        SNB.EquipOffhandIfInBerserkerStance()  -- Equip offhand if in Berserker Stance
-
-        if SNB.IsMainHandEnchantActive() then
-            -- Boss Mode with Windfury
-            SNB.CheckAndCastSpellUnified()
-        else
-            -- Farm Mode without Windfury
-            SNB.CheckAndCastSpellUnified()
-        end
-
-    elseif SNB.IsInBattleStance() then
-        -- Battle Stance logic
-        SNB.EquipOffhandIfInBerserkerStance()  -- Equip offhand if in Battle Stance
-
-        if SNB.IsMainHandEnchantActive() then
-            -- Boss Mode with Windfury in Battle Stance
-            SNB.CheckAndCastSpellUnified()
-        else
-            -- Farm Mode without Windfury in Battle Stance
-            SNB.CheckAndCastSpellUnified()
         end
     end
 end
