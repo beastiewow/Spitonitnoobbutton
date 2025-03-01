@@ -1,43 +1,85 @@
+------------------------------------------
+-- Your existing debug utilities
+------------------------------------------
 local DEBUG = false
 
 local function tp_print(msg)
-    if type(msg) == "boolean" then msg = msg and "true" or "false" end
+    if type(msg) == "boolean" then 
+        msg = msg and "true" or "false" 
+    end
     DEFAULT_CHAT_FRAME:AddMessage(msg)
 end
 
 local function debug_print(msg)
-    if DEBUG then tp_print(msg) end
+    if DEBUG then
+        tp_print(msg)
+    end
 end
 
-------------------------------------------------------------
--- Auto-Attack Helpers (from Roid macros)
-------------------------------------------------------------
+------------------------------------------
+-- AUTO ATTACK STATE & FRAME
+-- (Baked-in Roid Macros logic)
+------------------------------------------
+-- Data table to store our lock/flags
+local TPAutoAttackData = {
+    autoAttackLock = false,  -- Whether we're currently "lock-protecting" auto-attack
+    autoAttack     = false,  -- Are we in auto-attack?
+}
+
+-- Frame for watching relevant combat events
+local TPAutoAttackFrame = CreateFrame("Frame")
+TPAutoAttackFrame:RegisterEvent("PLAYER_ENTER_COMBAT")
+TPAutoAttackFrame:RegisterEvent("PLAYER_LEAVE_COMBAT")
+TPAutoAttackFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+
+TPAutoAttackFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_ENTER_COMBAT" then
+        TPAutoAttackData.autoAttack     = true
+        TPAutoAttackData.autoAttackLock = false
+    elseif event == "PLAYER_LEAVE_COMBAT" then
+        TPAutoAttackData.autoAttack     = false
+        TPAutoAttackData.autoAttackLock = false
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        -- Safely reset locks when your target changes
+        TPAutoAttackData.autoAttack     = false
+        TPAutoAttackData.autoAttackLock = false
+    end
+end)
+
+------------------------------------------
+-- Check if auto-attack is active
+------------------------------------------
 local function IsAutoAttackActive()
     for i = 1, 120 do
         if IsCurrentAction(i) then
-            return true  -- Auto-attack is active
+            -- Found a slot that's toggled on to "Attack"
+            return true
         end
     end
-    return false  -- Auto-attack is not active
+    return false
 end
 
--- Roid macros auto-attack logic with stronger locking mechanism
+------------------------------------------
+-- Lock for 0.2s using GetTime() approach
+------------------------------------------
 local function StartAutoAttack()
-    -- Check if a valid target exists and auto-attack isn't running
-    if not IsAutoAttackActive() and UnitExists("target") and not UnitIsDead("target") and UnitCanAttack("player", "target") then
-        debug_print("Starting auto-attack.")
-        AttackTarget()  -- Start auto-attack
+    -- ... your existing checks ...
+    if not TPAutoAttackData.autoAttackLock 
+       and not IsAutoAttackActive()
+       and UnitExists("target")
+       and not UnitIsDead("target")
+       and UnitCanAttack("player", "target") 
+    then
+        AttackTarget()  -- start auto-attack
+        TPAutoAttackData.autoAttackLock = true
 
-        -- Lock the auto-attack to prevent it from being toggled off
-        Roids.CurrentSpell.autoAttackLock = true
-
-        -- Timer to unlock after 0.2 seconds in case something interrupts
-        local elapsed = 0
-        Roids.Frame:SetScript("OnUpdate", function()
-            elapsed = elapsed + arg1
-            if Roids.CurrentSpell.autoAttackLock and elapsed > 0.2 then
-                Roids.CurrentSpell.autoAttackLock = false
-                Roids.Frame:SetScript("OnUpdate", nil)
+        local startTime = GetTime()
+        TPAutoAttackFrame:SetScript("OnUpdate", function()
+            -- Compare current time vs. the moment we started
+            local now = GetTime()
+            if (now - startTime) >= 0.2 then
+                TPAutoAttackData.autoAttackLock = false
+                TPAutoAttackFrame:SetScript("OnUpdate", nil)
             end
         end)
     else
@@ -45,15 +87,17 @@ local function StartAutoAttack()
     end
 end
 
-------------------------------------------------------------
--- 5-Yard Check using Execute Action Slot
-------------------------------------------------------------
-local yard05  -- holds the action slot index for our execute spell
+
+------------------------------------------
+-- 5-yard "Execute" slot detection
+------------------------------------------
+local yard05  -- Holds the action bar index of Execute
 
 local function SNB_InitDistance()
     for i = 1, 120 do
         local t = GetActionTexture(i)
         if t then
+            -- If it's "INV_Sword_48", assume that's Execute
             if not yard05 and string.find(t, "INV_Sword_48") then
                 yard05 = i
                 DEFAULT_CHAT_FRAME:AddMessage("Found 5 yard spell (execute) in slot: " .. i)
@@ -63,96 +107,97 @@ local function SNB_InitDistance()
     end
 
     if not yard05 then
-        DEFAULT_CHAT_FRAME:AddMessage("5 yard spell not found – please add execute to an action bar slot.")
+        DEFAULT_CHAT_FRAME:AddMessage("5 yard spell not found – please add Execute to an action bar slot.")
     end
 end
 
-------------------------------------------------------------
--- Targeting Function Using 5- and 8-Yard Checks
-------------------------------------------------------------
+------------------------------------------
+-- Main Targeting Function
+------------------------------------------
 local function TargetClosestEnemy()
     local closestDistance = 1000
-    local closestTarget = nil
-    local currentTarget = UnitName("target")
-    local currentTargetDistance = 1000
+    local closestTarget   = nil
+    local currentTarget   = UnitName("target")
+    local currentDistance = 1000
 
-    -- Determine current target's range:
     if currentTarget and not UnitIsDead("target") then
-        if not yard05 then SNB_InitDistance() end
-        -- Use our execute slot check for 5 yards:
+        if not yard05 then 
+            SNB_InitDistance() 
+        end
+        -- Use IsActionInRange for ~5 yards check
         if yard05 and IsActionInRange(yard05) == 1 then
-            currentTargetDistance = 5
-        -- Otherwise, check for roughly 8 yards:
+            currentDistance = 5
         elseif CheckInteractDistance("target", 3) then
-            currentTargetDistance = 8
+            currentDistance = 8
         end
     end
 
     local isBossTarget = currentTarget and (UnitClassification("target") == "worldboss")
 
     debug_print("Current Target: " .. (currentTarget or "None"))
-    debug_print("Current Target Distance: " .. currentTargetDistance)
+    debug_print("Current Target Distance: " .. currentDistance)
     debug_print("Is Boss Target: " .. tostring(isBossTarget))
-    
-    -- If currently attacking a marked target that is within 5 yards and not a boss, maintain it.
-    if currentTarget and not UnitIsDead("target") and GetRaidTargetIndex("target") and currentTargetDistance == 5 and not isBossTarget then
-        debug_print("Current marked target is within 5 yards, maintaining target: " .. currentTarget)
+
+    -- If current target is a marked target within 5 yards (not a boss), keep it
+    if currentTarget 
+       and not UnitIsDead("target") 
+       and GetRaidTargetIndex("target") 
+       and (currentDistance == 5) 
+       and not isBossTarget then
+        debug_print("Keeping marked target: " .. currentTarget)
         StartAutoAttack()
         return
     end
 
-    -- If the current target is valid, within 8 yards, and not a boss, maintain it.
-    if currentTarget and not UnitIsDead("target") and currentTargetDistance <= 8 and not isBossTarget then
-        debug_print("Current target is within range and alive, maintaining target: " .. currentTarget)
-        StartAutoAttack()
-        return
-    elseif isBossTarget then
-        debug_print("Current target is a boss, maintaining target: " .. currentTarget)
+    -- If current target is valid within 8 yards (or a boss), keep it
+    if currentTarget 
+       and not UnitIsDead("target") 
+       and (currentDistance <= 8 or isBossTarget) then
+        debug_print("Maintaining target: " .. currentTarget)
         StartAutoAttack()
         return
     end
 
-    -- Otherwise, cycle through nearby enemies to find a closer candidate.
+    -- Otherwise, search for a better (closer) target
     for i = 1, 5 do
         TargetNearestEnemy()
-
         if UnitExists("target") and not UnitIsDead("target") then
-            local targetName = UnitName("target")
-            local candidateDistance = 1000
+            local tName           = UnitName("target")
+            local candidateDist   = 1000
 
             if yard05 and IsActionInRange(yard05) == 1 then
-                candidateDistance = 5
+                candidateDist = 5
             elseif CheckInteractDistance("target", 3) then
-                candidateDistance = 8
+                candidateDist = 8
             end
 
-            debug_print("Checking Target: " .. targetName .. " at Distance: " .. candidateDistance)
-            
-            if candidateDistance < closestDistance then
-                closestDistance = candidateDistance
-                closestTarget = targetName
+            debug_print("Checking Target: " .. tName .. " at Distance: " .. candidateDist)
+
+            if candidateDist < closestDistance then
+                closestDistance = candidateDist
+                closestTarget   = tName
                 debug_print("New Closest Target: " .. closestTarget .. " at Distance: " .. closestDistance)
             end
         end
     end
 
-    if closestTarget and closestTarget ~= currentTarget then
+    if closestTarget and (closestTarget ~= currentTarget) then
         debug_print("Targeting New Closest Target: " .. closestTarget)
         TargetByName(closestTarget)
     else
-        debug_print("No valid target found or current target is still the closest.")
+        debug_print("No new valid target found or current target still closest.")
     end
 
+    -- Start auto-attack if we ended up with a target
     StartAutoAttack()
 end
 
-------------------------------------------------------------
--- Debug Toggle and Slash Commands
-------------------------------------------------------------
+------------------------------------------
+-- Slash Command Setup
+------------------------------------------
 local function ToggleDebug()
     DEBUG = not DEBUG
-    local status = DEBUG and "ON" or "OFF"
-    tp_print("Debug mode is now " .. status)
+    tp_print("Debug mode is now " .. (DEBUG and "ON" or "OFF"))
 end
 
 SLASH_CLOSESTINRANGE1 = "/closestinrange"
