@@ -1,166 +1,213 @@
--- Unified Arms Single Target Rotation
-function SNB.ArmsSingleTargetUnified()
-    -- Battle Shout Check
-    local i, hasBattleShout = 1, false
+-- Last cast time tracking for Battle Shout
+SNB.lastBattleShoutTime = 0
+
+function SNB.CheckAndCastSpellUnified()
+    local baseAttackPower, posBuff, negBuff = UnitAttackPower("player")
+    local attackPower = baseAttackPower + posBuff + negBuff
+    local i, x = 1, 0
+
+    -- Check for Battle Shout buff
     while UnitBuff("player", i) do
         if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
-            hasBattleShout = true
+            x = 1
         end
         i = i + 1
     end
-    if not hasBattleShout and SNB.CanCastBattleShout() then
+
+    -- Cooldowns
+    local bdStart, bdDuration = SNB.GetSpellCooldownById(23894) -- Bloodthirst
+    local wdStart, wdDuration = SNB.GetSpellCooldownById(1680) -- Whirlwind
+    local hsStart, hsDuration = SNB.GetSpellCooldownById(27584) -- Hamstring
+    local overpowerReady = SNB.IsOverpowerAvailable() -- Check Overpower availability
+
+    local bd = (bdStart + bdDuration) - GetTime()
+    local wd = (wdStart + wdDuration) - GetTime()
+    local hs = (hsStart + hsDuration) - GetTime()
+
+    -- Sanity check for cooldown values
+    if bd < 0 then bd = 0 end
+    if wd < 0 then wd = 0 end
+    if hs < 0 then hs = 0 end
+
+    -- Recast Battle Shout if needed
+    if SNB.NeedsRecastBattleShout() and SNB.CanCastBattleShout() then
         CastSpellByName("Battle Shout")
+        SNB.lastBattleShoutTime = GetTime()
         return
     end
 
-    -- Get cooldowns for Mortal Strike and Whirlwind
-    local msStart, msDuration = SNB.GetSpellCooldownById(21553) -- Mortal Strike
-    local wwStart, wwDuration = SNB.GetSpellCooldownById(1680)  -- Whirlwind
-    local msCooldown = (msStart + msDuration) - GetTime()
-    local wwCooldown = (wwStart + wwDuration) - GetTime()
-    local overpowerReady = SNB.IsOverpowerAvailable() -- Custom function to check Overpower availability
-    local rage = UnitMana("player")
-
-    -- Overpower logic
-    if SNB.isOverpowerMode and overpowerReady and GetTime() < (SNB.overpowerProcEndTime - 0.6) and st_timer < 2 and msCooldown >= 0.5 then
-        if SNB.IsInBattleStance() and rage > 5 then
+    -- Overpower logic if enabled
+    if SNB.isOverpowerMode and overpowerReady and GetTime() < (SNB.overpowerProcEndTime - 0.6) then
+        if SNB.IsInBerserkerStance() and UnitMana("player") < 50 and st_timer > 0.5 then
             CastSpellByName("Overpower")
             return
-        elseif not SNB.IsInBattleStance() then
-            CastSpellByName("Battle Stance")
+        elseif SNB.IsInBattleStance() and UnitMana("player") >= 5 then
+            CastSpellByName("Overpower")
+            return
+        elseif not SNB.IsInBerserkerStance() then
+            CastSpellByName("Berserker Stance")
             return
         end
-    elseif not overpowerReady and not SNB.IsInBerserkerStance() then
-        CastSpellByName("Berserker Stance")
     end
 
-    -- Mortal Strike logic
-    if rage >= 30 and msCooldown <= 0 then
-        CastSpellByName("Mortal Strike")
-        return
-    end
+    -- Logic based on Windfury presence
+    local hasWindfury = SNB.IsMainHandEnchantActive()
 
-    -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 then
-        CastSpellByName("Whirlwind")
-        return
-    end
-
-    -- Slam logic
-    if rage >= 15 and (st_timer < 3.4 and st_timer > 1.4) then
-        SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
-        CastSpellByName("Slam")
+    if hasWindfury then
+        -- Boss rotation with Windfury
+        if bdStart == 0 and UnitMana("player") >= 30 then
+            CastSpellByName("Bloodthirst")
+        elseif flurryTimeLeft == nil and hsStart == 0 and UnitMana("player") >= 50 and bd > 1.5 and st_timer > 1 then
+            CastSpellByName("Hamstring")
+        elseif SNB.isWhirlwindMode and wdStart == 0 and bd > 1.5 and UnitMana("player") >= 30 then
+            CastSpellByName("Whirlwind")
+        elseif bd > 1.5 and wd > 1.5 and UnitMana("player") >= 65 and st_timer > 0.5 then
+            CastSpellByName("Sunder Armor")
+        end
+    else
+        -- Farm rotation without Windfury
+        if bdStart == 0 and UnitMana("player") >= 30 then
+            CastSpellByName("Bloodthirst")
+        elseif flurryTimeLeft == nil and UnitMana("player") >= 60 and (bd > 1.5 and wd > 1.5) then
+            CastSpellByName("Hamstring")
+        elseif SNB.isWhirlwindMode and wdStart == 0 and bd > 1 and UnitMana("player") >= 25 then
+            CastSpellByName("Whirlwind")
+        end
     end
 
     -- Heroic Strike logic
-    if not SNB.IsHeroicStrikeQueued() and rage > 100 and st_timer > 3 then
+    if UnitMana("player") >= 12 and st_timer > 0.5 and not SNB.IsHeroicStrikeQueued() then
         CastSpellByName("Heroic Strike")
-    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
-        SpellStopCasting("Heroic Strike")
+    end
+
+    -- Cancel Heroic Strike if low rage or priorities change
+    if SNB.IsHeroicStrikeQueued() then
+        if wd < 1.5 and bd < 1.5 and UnitMana("player") < 67 then
+            SpellStopCasting("Heroic Strike")
+        elseif bd <= 1 and UnitMana("player") < 47 then
+            SpellStopCasting("Heroic Strike")
+        elseif wd <= 1 and UnitMana("player") < 42 then
+            SpellStopCasting("Heroic Strike")
+        elseif UnitMana("player") < 35 then
+            SpellStopCasting("Heroic Strike")
+        end
     end
 end
 
+-- Unified single target spell casting logic for 2-handers
+function SNB.CheckAndCastSpell2handerUnified()
+    local baseAttackPower, posBuff, negBuff = UnitAttackPower("player")
+    local attackPower = baseAttackPower + posBuff + negBuff
+    local i, x = 1, 0
 
--- AOE Rotation function for Arms Warrior in SNB namespace
-function SNB.ArmsAOERotation()
-    -- Battle Shout Check
-    local i, hasBattleShout = 1, false
+    -- Check for Battle Shout buff
     while UnitBuff("player", i) do
         if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
-            hasBattleShout = true
+            x = 1
         end
         i = i + 1
     end
-    if not hasBattleShout and SNB.CanCastBattleShout() then
+
+    local bdStart, bdDuration, bdEnabled = SNB.GetSpellCooldownById(23894) -- Bloodthirst
+    local wdStart, wdDuration, wdEnabled = SNB.GetSpellCooldownById(1680) -- Whirlwind
+
+    local bd = (bdStart + bdDuration) - GetTime()
+    local wd = (wdStart + wdDuration) - GetTime()
+
+    -- Sanity check for cooldown values
+    if bd < 0 then bd = 0 end
+    if wd < 0 then wd = 0 end
+
+    if SNB.NeedsRecastBattleShout() and SNB.CanCastBattleShout() then
         CastSpellByName("Battle Shout")
-        return
-    end
-
-    -- Get cooldowns for Mortal Strike and Whirlwind
-    local msStart, msDuration = SNB.GetSpellCooldownById(12294) -- Mortal Strike
-    local wwStart, wwDuration = SNB.GetSpellCooldownById(1680)  -- Whirlwind
-    local msCooldown = (msStart + msDuration) - GetTime()
-    local wwCooldown = (wwStart + wwDuration) - GetTime()
-    local rage = UnitMana("player")
-
-    -- AOE Rotation priority order
-    -- 1. Whirlwind if off cooldown and 25+ rage
-    if rage >= 25 and wwCooldown <= 0 then
+        SNB.lastBattleShoutTime = GetTime()
+    elseif bdStart == 0 and UnitMana("player") >= 30 then
+        CastSpellByName("Bloodthirst")
+    elseif SNB.isWhirlwindMode and wdStart == 0 and bd > 1 and UnitMana("player") >= 80 then
         CastSpellByName("Whirlwind")
-    elseif rage >= 55 and msCooldown <= 0 then
-        CastSpellByName("Mortal Strike")
-    elseif rage >= 30 and msCooldown <= 0 and wwCooldown > 4 then
-        CastSpellByName("Mortal Strike")
+    elseif not SNB.isWhirlwindMode and flurryTimeLeft == nil and hsStart == 0 and UnitMana("player") >= 50 and bd > 1.5 and st_timer > 1 then
+        CastSpellByName("Hamstring")
+    elseif bd > 1.5 and UnitMana("player") >= 35 and st_timer > 0.5 then
+        CastSpellByName("Sunder Armor")
     end
 
-    -- Cleave if 30+ rage, swing timer is more than 0.5 seconds, and Cleave is not currently queued
-    if not SNB.IsCleaveQueued() then
-        -- 1. Cancel if both MS and WW cooldowns are <= 1.5, less than 70 rage, and swing timer <= 0.5
-        if rage > 90 then
-            CastSpellByName("Cleave")
-        elseif rage > 70 and wwCooldown > 5.5 then
-            CastSpellByName("Cleave")
-        elseif rage > 50 and wwCooldown > 5.5 and msCooldown > 2.5 then
-            CastSpellByName("Cleave")
-        elseif rage > 20 and wwCooldown > 5.5 and msCooldown > 5 then
-            CastSpellByName("Cleave")
+    if bd < 1.5 and UnitMana("player") >= 37 then
+        CastSpellByName("Heroic Strike")
+    elseif bd < 1 and UnitMana("player") >= 47 then
+        CastSpellByName("Heroic Strike")
+    elseif bd > 3 and UnitMana("player") >= 30 then
+        CastSpellByName("Heroic Strike")
+    end
+
+    -- Cancel Heroic Strike if below rage thresholds
+    if SNB.IsHeroicStrikeQueued() then
+        if bd <= 1 and UnitMana("player") < 42 and st_timer < 0.5 then
+            SpellStopCasting("Heroic Strike")
+        elseif UnitMana("player") < 30 and st_timer < 0.5 then
+            SpellStopCasting("Heroic Strike")
         end
     end
 end
 
--- Macro to call the Arms AOE Rotation function
-SLASH_ARMSAOE1 = "/armsaoe"
-SlashCmdList["ARMSAOE"] = function()
-    SNB.ArmsAOERotation()
-end
 
--- Function to cast Sweeping Strikes with stance management based on cooldown and active status
-function SNB.CastSweepingStrikes()
-    -- Check Sweeping Strikes cooldown
-    local ssStart, ssDuration = SNB.GetSpellCooldownById(12292)  -- Replace 12292 with Sweeping Strikes ID
-    local ssCooldown = (ssStart + ssDuration) - GetTime()
-
-    -- Check if Sweeping Strikes is already active
-    local isSweepingStrikesActive = SNB.SweepingStrikesActive()
-
-    -- Check Bloodrage cooldown
-    local brStart, brDuration = SNB.GetSpellCooldownById(2687) -- Replace 2687 with Bloodrage ID
-    local brCooldown = (brStart + brDuration) - GetTime()
-
-    -- Current rage
-    local rage = UnitMana("player")
-
-    -- If Sweeping Strikes is on cooldown or already active, switch to Berserker Stance
-    if ssCooldown > 0 or isSweepingStrikesActive then
-        if not SNB.IsInBerserkerStance() then
-            CastSpellByName("Berserker Stance")
+-- General spell casting 2hander boss
+function SNB.CheckAndCastSpell2handerCleaveBuildSingle()
+    local baseAttackPower, posBuff, negBuff = UnitAttackPower("player")
+    local attackPower = baseAttackPower + posBuff + negBuff
+    local i, x = 1, 0
+    
+    -- Check for Battle Shout buff
+    while UnitBuff("player", i) do
+        if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
+            x = 1
         end
-        return
+        i = i + 1
     end
 
-    -- If Sweeping Strikes is off cooldown and not active, ensure enough rage
-    if rage < 10 and brCooldown <= 0 then
-        CastSpellByName("Bloodrage")
-        return -- Exit to let Bloodrage generate rage before continuing
+    local wdStart, wdDuration, wdEnabled = SNB.GetSpellCooldownById(1680) -- Whirlwind
+    
+    local wd = (wdStart + wdDuration) - GetTime()
+
+    -- Sanity check for cooldown values
+    if wd < 0 then wd = 0 end
+
+    if SNB.NeedsRecastBattleShout() and SNB.CanCastBattleShout() then
+        CastSpellByName("Battle Shout")
+        SNB.lastBattleShoutTime = GetTime()
+    elseif wdStart == 0 and UnitMana("player") >= 25 then
+        CastSpellByName("Whirlwind")
+    elseif overpowerReady and GetTime() < (SNB.overpowerProcEndTime - 0.3) and wd > 3 and UnitMana("player") < 50 then
+        CastSpellByName("Overpower")
+    elseif overpowerReady and GetTime() < (SNB.overpowerProcEndTime - 0.3) and UnitMana("player") < 25 then
+        CastSpellByName("Overpower")
+    elseif wd > 0.5 and UnitMana("player") >= 60 and st_timer > 0.3 and SNB.IsWindfuryAvailable() and SNB.IsShamanInGroup() then
+        CastSpellByName("Sunder Armor")
+    elseif wd > 3 and UnitMana("player") >= 50 and st_timer > 0.3 and SNB.IsWindfuryAvailable() and SNB.IsShamanInGroup() then
+        CastSpellByName("Sunder Armor")
+    elseif wd > 1 and UnitMana("player") >= 40 and st_timer > 0.3 and SNB.IsWindfuryAvailable() and SNB.IsShamanInGroup() then
+        CastSpellByName("Sunder Armor")
+    elseif wd > 2 and UnitMana("player") >= 30 and st_timer > 0.3 and SNB.IsWindfuryAvailable() and SNB.IsShamanInGroup() then
+        CastSpellByName("Sunder Armor")
+    elseif wd > 1.6 and UnitMana("player") > 99 and SNB.IsShamanInGroup() and st_timer > 1 and SNB.IsWindfuryAvailable() then
+        CastSpellByName("Sunder Armor")
     end
 
-    -- Switch to Battle Stance and cast Sweeping Strikes
-    if not SNB.IsInBattleStance() then
-        CastSpellByName("Battle Stance")
+    if wd < 1.5 and UnitMana("player") >= 35 then
+        CastSpellByName("Heroic Strike")
+    elseif wd < 1 and UnitMana("player") >= 45 then
+        CastSpellByName("Heroic Strike")
+    elseif wd > 3 and UnitMana("player") >= 30 then
+        CastSpellByName("Heroic Strike")
     end
 
-    CastSpellByName("Sweeping Strikes")
-
-    -- After casting Sweeping Strikes, swap back to Berserker Stance
-    if not SNB.IsInBerserkerStance() then
-        CastSpellByName("Berserker Stance")
+    -- Cancel Heroic Strike if below 20 rage or if Bloodthirst is off cooldown and rage is less than 30
+    if SNB.IsHeroicStrikeQueued() then
+        if wd <= 1 and UnitMana("player") < 42 and st_timer < 0.5 then
+            SpellStopCasting("Heroic Strike")
+        elseif wd > 3 and UnitMana("player") < 20 and st_timer > 0.5 then
+            SpellStopCasting("Heroic Strike")
+        elseif UnitMana("player") < 30 then
+            SpellStopCasting("Heroic Strike")
+        end
     end
-end
-
-
-
--- Macro to call the Sweeping Strikes stance-swap function
-SLASH_SWEEPINGSTRIKES1 = "/sweepingstrikes"
-SlashCmdList["SWEEPINGSTRIKES"] = function()
-    SNB.CastSweepingStrikes()
 end
