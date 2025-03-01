@@ -35,19 +35,20 @@ function SNB.ArmsSingleTargetUnified()
     end
 
     -- Mortal Strike logic
-    if rage >= 30 and msCooldown <= 0 and (st_timer < 1.9 or st_timer > 3.5) then
+    if rage >= 30 and msCooldown <= 0 then
         CastSpellByName("Mortal Strike")
         return
     end
 
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 and (st_timer < 1.9 or st_timer > 3.5) then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 then
         CastSpellByName("Whirlwind")
         return
     end
 
     -- Slam logic
-    if rage >= 15 and st_timer > 1.9 and st_timer < 3.5 then
+    if rage >= 15 and (st_timer < 3.4 and st_timer > 1.4) then
+        SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
     end
 
