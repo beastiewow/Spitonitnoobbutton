@@ -5,12 +5,8 @@ TwoHanderName = TwoHanderName or {}
 -- Function to initialize the saved variable when the addon is loaded
 local function OnAddonLoaded(self, event, addonName)
     if addonName == "Offhand" then  -- Replace this with the name of your addon folder if necessary
-        -- Ensure the saved variable is initialized
         if not OffhandName.name then
             OffhandName.name = nil
-        else
-            -- Optional: Debug print to confirm that it loaded
-            -- debug_print("Loaded saved offhand weapon name: " .. OffhandName.name)
         end
     end
 end
@@ -24,7 +20,7 @@ frame:SetScript("OnEvent", OnAddonLoaded)
 SLASH_OFFHAND1 = "/offhand"
 function SlashCmdList.OFFHAND(msg)
     if msg and msg ~= "" then
-        OffhandName.name = msg  -- Save the selected offhand name in the saved variable
+        OffhandName.name = msg
         print("Offhand weapon set to: " .. OffhandName.name)
     else
         print("Please provide the name of the offhand weapon. Usage: /offhand [name]")
@@ -35,7 +31,7 @@ end
 SLASH_TWOHANDER1 = "/2hander"
 function SlashCmdList.TWOHANDER(msg)
     if msg and msg ~= "" then
-        TwoHanderName.name = msg  -- Save the selected two-hander name in the saved variable
+        TwoHanderName.name = msg
         print("Two-hander weapon set to: " .. TwoHanderName.name)
     else
         print("Please provide the name of the two-hander. Usage: /2hander [name]")
@@ -48,31 +44,38 @@ function SNB.IsTwoHanderEquipped()
     if mainHandLink and TwoHanderName.name then
         local _, _, itemName = string.find(mainHandLink, "%[(.+)%]")
         if itemName == TwoHanderName.name then
-            -- Debug print to confirm detection (optional, remove for production)
-            return true  -- Return true if the selected two-hander is equipped
+            return true
         end
     end
     return false
 end
 
--- Function to equip the offhand weapon if in Berserker Stance or Battle Stance and no two-hander equipped
+-- Function to equip the offhand weapon IF:
+-- 1) You are in Berserker or Battle Stance,
+-- 2) You are NOT Arms spec (i.e., do NOT have Mortal Strike),
+-- 3) You do not have your selected two-hander equipped.
 function SNB.EquipOffhandIfInBerserkerStance()
+    -- Bail out immediately if the player is Arms spec (Mortal Strike)
+    if SNB.HasTalent("Mortal Strike") then
+        -- We do NOT want to equip an offhand in Arms spec
+        return
+    end
+
     -- Check if the player is in Berserker or Battle Stance
     if SNB.IsInBerserkerStance() or SNB.IsInBattleStance() then
         -- Check if the selected two-hander is equipped
         if SNB.IsTwoHanderEquipped() then
             -- If the two-hander is equipped, skip equipping the offhand
-            return  -- Exit the function early to avoid equipping the offhand
+            return
         end
 
-        -- Equip the saved offhand weapon if no two-hander is equipped
+        -- Otherwise, equip the saved offhand weapon (if set)
         if OffhandName.name then
             local offhandSlot = 17  -- Offhand slot ID
             for bag = 0, 4 do
                 for slot = 1, GetContainerNumSlots(bag) do
                     local itemLink = GetContainerItemLink(bag, slot)
                     if itemLink and string.find(itemLink, OffhandName.name) then
-                        -- Equip the offhand from the player's bags
                         PickupContainerItem(bag, slot)
                         PickupInventoryItem(offhandSlot)
                         return
@@ -82,11 +85,3 @@ function SNB.EquipOffhandIfInBerserkerStance()
         end
     end
 end
-
-
-
-
-
-
-
-
