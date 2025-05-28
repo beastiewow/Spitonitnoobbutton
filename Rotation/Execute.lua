@@ -435,8 +435,9 @@ end
 -- SNB – Modified Arms Execute Function (with Target Swapping and Auto-Attack)
 -----------------------------
 function SNB.ArmsExecuteHSNoSlamTrack()
-    -- Abort if current target is dead or no target exists.
+-- Abort if current target is dead or no target exists.
     if not UnitExists("target") or UnitIsDead("target") then
+        DEFAULT_CHAT_FRAME:AddMessage("Current target is dead or no target selected. Aborting Execute.")
         return
     end
 
@@ -473,7 +474,7 @@ function SNB.ArmsExecuteHSNoSlamTrack()
             StartAutoAttack()
             return
         else
-            -- (2) Scan for a nearby candidate in Execute range.
+            -- (2) Scan for a nearby candidate via our GUID-based method.
             local candidateGUID = SNB_GetExecuteCandidate()
             if candidateGUID then
                 local candidatePct = (UnitHealth(candidateGUID) / UnitHealthMax(candidateGUID)) * 100
@@ -495,10 +496,11 @@ function SNB.ArmsExecuteHSNoSlamTrack()
                 StartAutoAttack()
                 return
             else
-                -- (3) Check if current target is within 5 yards.
-                local currentTargetDistance = UnitXP("distanceBetween", "player", "target", "meleeAutoAttack")
-                if currentTargetDistance and currentTargetDistance <= 5 then
+                -- (3) No candidate found – maintain current target.
+                local currentTargetInRange = IsActionInRange(yard05)
+                if currentTargetInRange then
                     StartAutoAttack() -- Ensure auto-attack is on for the current target
+                    DEFAULT_CHAT_FRAME:AddMessage("No Execute candidate found. Staying with current target within 5 yards.")
                     return
                 end
 
@@ -507,7 +509,9 @@ function SNB.ArmsExecuteHSNoSlamTrack()
                 if anyCandidate then
                     TargetUnit(anyCandidate)
                     StartAutoAttack()
+                    DEFAULT_CHAT_FRAME:AddMessage("No Execute candidate found. Targeting another mob within 5 yards.")
                 else
+                    DEFAULT_CHAT_FRAME:AddMessage("No targets found within 5 yards.")
                 end
                 return
             end
