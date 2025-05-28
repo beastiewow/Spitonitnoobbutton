@@ -47,7 +47,7 @@ function SNB.ArmsSingleTargetUnified()
     end
 
     -- Slam logic
-    if rage >= 15 and (st_timer < 3.4 and st_timer > 1.4) then
+    if rage >= 15 and (st_timer < 3 and st_timer > 1.6) then
         SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
     end
