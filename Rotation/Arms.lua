@@ -1,16 +1,49 @@
 -- Unified Arms Single Target Rotation
-function SNB.ArmsSingleTargetUnified()
-    -- Battle Shout Check
-    local i, hasBattleShout = 1, false
-    while UnitBuff("player", i) do
-        if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
-            hasBattleShout = true
-        end
-        i = i + 1
+-- Toggle function for Battle Shout behavior
+-- Update your ToggleBattleShout function to include alpha updates
+function SNB.ToggleBattleShout()
+    SNB.battleShoutEnabled = not SNB.battleShoutEnabled
+    SNB.UpdateBattleShoutButtonAlpha()
+    
+    -- Provide chat feedback
+    if SNB.battleShoutEnabled then
+        DEFAULT_CHAT_FRAME:AddMessage("Battle Shout |cff00ff00ENABLED|r", 1, 1, 0)
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("Battle Shout |cffff0000DISABLED|r", 1, 1, 0)
     end
-    if not hasBattleShout and SNB.CanCastBattleShout() then
-        CastSpellByName("Battle Shout")
-        return
+end
+
+-- Slash command handler for SNB commands
+SLASH_SNB1 = "/snb"
+SlashCmdList["SNB"] = function(msg)
+    local args = {}
+    for word in string.gmatch(msg, "%S+") do
+        table.insert(args, string.lower(word))
+    end
+    
+    if args[1] == "bs" then
+        SNB.ToggleBattleShout()
+    else
+        print("SNB Commands:")
+        print("/snb bs - Toggle Battle Shout auto-casting")
+    end
+end
+
+
+function SNB.ArmsSingleTargetUnified()
+    -- Battle Shout Check (if enabled)
+    if SNB.battleShoutEnabled then
+        local i, hasBattleShout = 1, false
+        while UnitBuff("player", i) do
+            if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
+                hasBattleShout = true
+            end
+            i = i + 1
+        end
+        if not hasBattleShout and SNB.CanCastBattleShout() then
+            CastSpellByName("Battle Shout")
+            return
+        end
     end
 
     -- Get cooldowns for Mortal Strike and Whirlwind
@@ -35,19 +68,22 @@ function SNB.ArmsSingleTargetUnified()
     end
 
     -- Mortal Strike logic
-    if rage >= 30 and msCooldown <= 0 then
+    if rage >= 30 and msCooldown <= 0.5 then
         CastSpellByName("Mortal Strike")
         return
     end
 
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0 and msCooldown > 1.2 then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 then
         CastSpellByName("Whirlwind")
         return
     end
 
     -- Slam logic
-    if rage >= 15 and (st_timer < 3 and st_timer > 1.6) then
+    if rage >= 30 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 0.7 and wwCooldown > 0.7 then
+        SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
+        CastSpellByName("Slam")
+    elseif rage >= 15 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 1.5 and wwCooldown > 1.5 then
         SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
     end
@@ -60,20 +96,78 @@ function SNB.ArmsSingleTargetUnified()
     end
 end
 
+function SNB.ArmsSingleTargetUnifiedSlamPrio()
+    -- Battle Shout Check (if enabled)
+    if SNB.battleShoutEnabled then
+        local i, hasBattleShout = 1, false
+        while UnitBuff("player", i) do
+            if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
+                hasBattleShout = true
+            end
+            i = i + 1
+        end
+        if not hasBattleShout and SNB.CanCastBattleShout() then
+            CastSpellByName("Battle Shout")
+            return
+        end
+    end
+    -- Get cooldowns for Mortal Strike and Whirlwind
+    local msStart, msDuration = SNB.GetSpellCooldownById(21553) -- Mortal Strike
+    local wwStart, wwDuration = SNB.GetSpellCooldownById(1680)  -- Whirlwind
+    local msCooldown = (msStart + msDuration) - GetTime()
+    local wwCooldown = (wwStart + wwDuration) - GetTime()
+    local overpowerReady = SNB.IsOverpowerAvailable() -- Custom function to check Overpower availability
+    local rage = UnitMana("player")
+    -- Overpower logic
+    if SNB.isOverpowerMode and overpowerReady and GetTime() < (SNB.overpowerProcEndTime - 0.6) and st_timer < 2 and msCooldown >= 0.5 then
+        if SNB.IsInBattleStance() and rage > 5 then
+            CastSpellByName("Overpower")
+            return
+        elseif not SNB.IsInBattleStance() then
+            CastSpellByName("Battle Stance")
+            return
+        end
+    elseif not overpowerReady and not SNB.IsInBerserkerStance() then
+        CastSpellByName("Berserker Stance")
+    end
+    -- Mortal Strike logic
+    if rage >= 30 and msCooldown <= 0.5 and (st_timer > 3.7 or st_timer < 1.8) then
+        CastSpellByName("Mortal Strike")
+        return
+    end
+    -- Whirlwind logic based on toggle
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer > 3.7 or st_timer < 1.8) then
+        CastSpellByName("Whirlwind")
+        return
+    end
+    -- Slam logic
+    if rage >= 30 and (st_timer < 3.7 and st_timer > 1.9) then
+        SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
+        CastSpellByName("Slam")
+    end
+    -- Heroic Strike logic
+    if not SNB.IsHeroicStrikeQueued() and rage > 100 and st_timer > 3 then
+        CastSpellByName("Heroic Strike")
+    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
+        SpellStopCasting("Heroic Strike")
+    end
+end
 
 -- AOE Rotation function for Arms Warrior in SNB namespace
 function SNB.ArmsAOERotation()
-    -- Battle Shout Check
-    local i, hasBattleShout = 1, false
-    while UnitBuff("player", i) do
-        if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
-            hasBattleShout = true
+    -- Battle Shout Check (if enabled)
+    if SNB.battleShoutEnabled then
+        local i, hasBattleShout = 1, false
+        while UnitBuff("player", i) do
+            if UnitBuff("player", i) == "Interface\\Icons\\Ability_Warrior_BattleShout" then
+                hasBattleShout = true
+            end
+            i = i + 1
         end
-        i = i + 1
-    end
-    if not hasBattleShout and SNB.CanCastBattleShout() then
-        CastSpellByName("Battle Shout")
-        return
+        if not hasBattleShout and SNB.CanCastBattleShout() then
+            CastSpellByName("Battle Shout")
+            return
+        end
     end
 
     -- Get cooldowns for Mortal Strike and Whirlwind
@@ -89,7 +183,7 @@ function SNB.ArmsAOERotation()
         CastSpellByName("Whirlwind")
     elseif rage >= 55 and msCooldown <= 0 then
         CastSpellByName("Mortal Strike")
-    elseif rage >= 30 and msCooldown <= 0 and wwCooldown > 4 then
+    elseif rage >= 30 and msCooldown <= 0 and wwCooldown > 2 then
         CastSpellByName("Mortal Strike")
     end
 
