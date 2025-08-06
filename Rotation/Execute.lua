@@ -437,7 +437,6 @@ end
 function SNB.ArmsExecuteHSNoSlamTrack()
 -- Abort if current target is dead or no target exists.
     if not UnitExists("target") or UnitIsDead("target") then
-        DEFAULT_CHAT_FRAME:AddMessage("Current target is dead or no target selected. Aborting Execute.")
         return
     end
 
@@ -500,7 +499,6 @@ function SNB.ArmsExecuteHSNoSlamTrack()
                 local currentTargetInRange = IsActionInRange(yard05)
                 if currentTargetInRange then
                     StartAutoAttack() -- Ensure auto-attack is on for the current target
-                    DEFAULT_CHAT_FRAME:AddMessage("No Execute candidate found. Staying with current target within 5 yards.")
                     return
                 end
 
@@ -509,9 +507,7 @@ function SNB.ArmsExecuteHSNoSlamTrack()
                 if anyCandidate then
                     TargetUnit(anyCandidate)
                     StartAutoAttack()
-                    DEFAULT_CHAT_FRAME:AddMessage("No Execute candidate found. Targeting another mob within 5 yards.")
                 else
-                    DEFAULT_CHAT_FRAME:AddMessage("No targets found within 5 yards.")
                 end
                 return
             end
@@ -533,7 +529,7 @@ function SNB.ArmsExecuteOld()
 
     -- Boss logic
     if isBoss then
-        -- Target between 5% and 20% HP
+        -- Target less than 20% HP
         if targetHealthPercent <= 20 then
             SpellStopCasting("Slam")
             CastSpellByName("Execute")
