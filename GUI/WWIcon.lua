@@ -3,7 +3,8 @@ WWIconSettings = WWIconSettings or {
     xOfs = 0,
     yOfs = 0,
     size = 64,
-    locked = false
+    locked = false,
+    verticalLayout = false  -- ADD THIS LINE
 }
 
 -- Add SNB namespace if it doesn't exist
@@ -63,6 +64,13 @@ local function CreateWWIconFrame()
         WWIconSettings.point = point
         WWIconSettings.xOfs = xOfs
         WWIconSettings.yOfs = yOfs
+    end)
+    
+    -- ADD RIGHT-CLICK HANDLER
+    WWIconFrame:SetScript("OnMouseDown", function()
+        if arg1 == "RightButton" then
+            SNB.ToggleWWIconLayout()
+        end
     end)
     
     -- Create the Whirlwind button
@@ -155,6 +163,90 @@ local function CreateWWIconFrame()
     return WWIconFrame
 end
 
+-- Function to toggle frame layout
+function SNB.ToggleWWIconLayout()
+    WWIconSettings.verticalLayout = not WWIconSettings.verticalLayout
+    local layoutText = WWIconSettings.verticalLayout and "vertical" or "horizontal"
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00[WWIcon]|r Layout changed to " .. layoutText .. ".")
+    SNB.UpdateWWIconGUI()
+end
+
+-- Function to update button positions based on layout
+function SNB.UpdateButtonPositions()
+    if not WWIconFrame then
+        return
+    end
+    
+    local buttonSize = WWIconSettings.size
+    local spacing = 5
+    local padding = 10
+    
+    -- Position buttons based on layout
+    if WWIconSettings.verticalLayout then
+        -- Vertical layout: stack top to bottom
+        if WWIconFrame.whirlwindButton then
+            WWIconFrame.whirlwindButton:ClearAllPoints()
+            WWIconFrame.whirlwindButton:SetPoint("TOP", WWIconFrame, "TOP", 0, -padding)
+        end
+        
+        if WWIconFrame.sweepingButton then
+            WWIconFrame.sweepingButton:ClearAllPoints()
+            if WWIconFrame.sweepingButton:IsShown() then
+                WWIconFrame.sweepingButton:SetPoint("TOP", WWIconFrame.whirlwindButton, "BOTTOM", 0, -spacing)
+            end
+        end
+        
+        if WWIconFrame.slamButton then
+            WWIconFrame.slamButton:ClearAllPoints()
+            if WWIconFrame.slamButton:IsShown() then
+                local anchor = (WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown()) 
+                    and WWIconFrame.sweepingButton or WWIconFrame.whirlwindButton
+                WWIconFrame.slamButton:SetPoint("TOP", anchor, "BOTTOM", 0, -spacing)
+            end
+        end
+        
+        if WWIconFrame.battleShoutButton then
+            WWIconFrame.battleShoutButton:ClearAllPoints()
+            local anchor = WWIconFrame.whirlwindButton
+            if WWIconFrame.slamButton and WWIconFrame.slamButton:IsShown() then
+                anchor = WWIconFrame.slamButton
+            elseif WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown() then
+                anchor = WWIconFrame.sweepingButton
+            end
+            WWIconFrame.battleShoutButton:SetPoint("TOP", anchor, "BOTTOM", 0, -spacing)
+        end
+    else
+        -- Horizontal layout: left to right
+        if WWIconFrame.whirlwindButton then
+            WWIconFrame.whirlwindButton:ClearAllPoints()
+            WWIconFrame.whirlwindButton:SetPoint("LEFT", WWIconFrame, "LEFT", padding, 0)
+        end
+        
+        if WWIconFrame.sweepingButton then
+            WWIconFrame.sweepingButton:ClearAllPoints()
+            WWIconFrame.sweepingButton:SetPoint("LEFT", WWIconFrame.whirlwindButton, "RIGHT", spacing, 0)
+        end
+        
+        if WWIconFrame.slamButton then
+            WWIconFrame.slamButton:ClearAllPoints()
+            local anchor = (WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown()) 
+                and WWIconFrame.sweepingButton or WWIconFrame.whirlwindButton
+            WWIconFrame.slamButton:SetPoint("LEFT", anchor, "RIGHT", spacing, 0)
+        end
+        
+        if WWIconFrame.battleShoutButton then
+            WWIconFrame.battleShoutButton:ClearAllPoints()
+            local anchor = WWIconFrame.whirlwindButton
+            if WWIconFrame.slamButton and WWIconFrame.slamButton:IsShown() then
+                anchor = WWIconFrame.slamButton
+            elseif WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown() then
+                anchor = WWIconFrame.sweepingButton
+            end
+            WWIconFrame.battleShoutButton:SetPoint("LEFT", anchor, "RIGHT", spacing, 0)
+        end
+    end
+end
+
 -- Check if player is talented into Sweeping Strikes (from original code)
 local function IsSweepingStrikesTalented()
     local _, _, _, _, rank = GetTalentInfo(1, 13) -- 1 = Arms tree, 13 = Sweeping Strikes
@@ -221,7 +313,7 @@ function SNB.UpdateWWIconGUI()
     local buttonSize = WWIconSettings.size
     local spacing = 5
     local padding = 10
-    local visibleButtons = 2  -- Whirlwind is always visible
+    local visibleButtons = 2  -- Whirlwind and Battle Shout are always visible
     
     -- Check if Sweeping Strikes button should be visible
     if IsSweepingStrikesTalented() then
@@ -233,12 +325,23 @@ function SNB.UpdateWWIconGUI()
         visibleButtons = visibleButtons + 1
     end
     
-    -- Adjust frame size
-    local frameWidth = (visibleButtons * buttonSize) + ((visibleButtons - 1) * spacing) + (padding * 2)
-    local frameHeight = buttonSize + (padding * 2)
+    -- Adjust frame size based on layout
+    if WWIconSettings.verticalLayout then
+        -- Vertical layout: fixed width, height grows with buttons
+        local frameWidth = buttonSize + (padding * 2)
+        local frameHeight = (visibleButtons * buttonSize) + ((visibleButtons - 1) * spacing) + (padding * 2)
+        WWIconFrame:SetWidth(frameWidth)
+        WWIconFrame:SetHeight(frameHeight)
+    else
+        -- Horizontal layout: width grows with buttons, fixed height
+        local frameWidth = (visibleButtons * buttonSize) + ((visibleButtons - 1) * spacing) + (padding * 2)
+        local frameHeight = buttonSize + (padding * 2)
+        WWIconFrame:SetWidth(frameWidth)
+        WWIconFrame:SetHeight(frameHeight)
+    end
     
-    WWIconFrame:SetWidth(frameWidth)
-    WWIconFrame:SetHeight(frameHeight)
+    -- Update button positions
+    SNB.UpdateButtonPositions()
     
     WWIconFrame:Show()
 end
@@ -484,6 +587,7 @@ local function WWIcon_SlashCommand(msg)
         print("/wwicon show - Show frame")
         print("/wwicon [size] - Resize buttons (16-128)")
         print("/wwicon help - Show this help")
+        print("Right-click frame - Toggle between horizontal/vertical layout") 
     else
         -- Check if it's a number for resizing
         local size = tonumber(lowerMsg)
@@ -521,13 +625,6 @@ local function InitializeWWIcon()
         
         -- Force the frame to be visible by default
         WWIconFrame:Show()
-        print("Frame shown by default!")
-        
-        -- Debug frame state
-        print("Frame debug - Shown: " .. tostring(WWIconFrame:IsShown()))
-        print("Frame debug - Visible: " .. tostring(WWIconFrame:IsVisible()))
-        local width, height = WWIconFrame:GetWidth(), WWIconFrame:GetHeight()
-        print("Frame debug - Size: " .. width .. "x" .. height)
     else
         print("ERROR: WWIconFrame failed to create!")
     end
@@ -550,10 +647,8 @@ eventFrame:SetScript("OnEvent", function()
     local event = arg1
     local addonName = arg2
     
-    print("WWIcon received event: " .. tostring(event) .. " with arg2: " .. tostring(addonName))
     
     if event == "ADDON_LOADED" and addonName == "SpitNoobbutton" then  -- Replace with your actual addon name
-        print("ADDON_LOADED event fired for SpitNoobbutton, initializing WWIcon...")
         InitializeWWIcon()
     elseif event == "VARIABLES_LOADED" then
         InitializeWWIcon()
@@ -587,5 +682,3 @@ end)
 function SNB.InitWWIcon()
     InitializeWWIcon()
 end
-
-print("WWIcon script loaded. Type /wwicon test to force create frame.")
