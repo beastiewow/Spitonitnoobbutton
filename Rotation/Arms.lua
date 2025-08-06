@@ -80,19 +80,12 @@ function SNB.ArmsSingleTargetUnified()
     end
 
     -- Slam logic
-    if rage >= 30 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 0.7 and wwCooldown > 0.7 then
+    if rage >= 30 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 0.5 then
         SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
-    elseif rage >= 15 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 1.5 and wwCooldown > 1.5 then
+    elseif rage >= 15 and (st_timer < 3.7 and st_timer > 1.6) and msCooldown > 1.5 then
         SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
-    end
-
-    -- Heroic Strike logic
-    if not SNB.IsHeroicStrikeQueued() and rage > 100 and st_timer > 3 then
-        CastSpellByName("Heroic Strike")
-    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
-        SpellStopCasting("Heroic Strike")
     end
 end
 
@@ -131,12 +124,12 @@ function SNB.ArmsSingleTargetUnifiedSlamPrio()
         CastSpellByName("Berserker Stance")
     end
     -- Mortal Strike logic
-    if rage >= 30 and msCooldown <= 0.5 and (st_timer > 3.7 or st_timer < 1.8) then
+    if rage >= 30 and msCooldown <= 0.5 and (st_timer < 1.8) then
         CastSpellByName("Mortal Strike")
         return
     end
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer > 3.7 or st_timer < 1.8) then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer < 1.8) then
         CastSpellByName("Whirlwind")
         return
     end
@@ -144,12 +137,6 @@ function SNB.ArmsSingleTargetUnifiedSlamPrio()
     if rage >= 30 and (st_timer < 3.7 and st_timer > 1.9) then
         SNB.debug_print("Casting Slam due to high rage and cooldown proximity")
         CastSpellByName("Slam")
-    end
-    -- Heroic Strike logic
-    if not SNB.IsHeroicStrikeQueued() and rage > 100 and st_timer > 3 then
-        CastSpellByName("Heroic Strike")
-    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
-        SpellStopCasting("Heroic Strike")
     end
 end
 
