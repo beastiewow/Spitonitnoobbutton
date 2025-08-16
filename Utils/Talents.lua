@@ -7,7 +7,7 @@ function SNB.HasTalent(talentName)
     -- Talent names and their tabIndex and talentIndex values
     local talents = {
         ["Mortal Strike"] = {tabIndex = 1, talentIndex = 18},  -- Arms talent tree, talent index 18
-        ["Bloodthirst"] = {tabIndex = 2, talentIndex = 16},    -- Fury talent tree, talent index 16
+        ["Bloodthirst"] = {tabIndex = 2, talentIndex = 17},    -- Fury talent tree, talent index 16
         ["Sweeping Strikes"] = {tabIndex = 1, talentIndex = 13}, -- Arms, talent index 13
         ["Death Wish"] = {tabIndex = 2, talentIndex = 12}       -- Fury, talent index 12
     }

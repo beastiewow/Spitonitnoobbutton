@@ -124,7 +124,7 @@ local function CreateWWIconFrame()
     
     -- Add the Slam Priority icon texture
     local slamTexture = slamButton:CreateTexture(nil, "BACKGROUND")
-    slamTexture:SetTexture("Interface\\Icons\\Ability_Warrior_DecisiveStrike")
+    slamTexture:SetTexture("Interface\\Icons\\Ability_Warrior_DecisiveStrike_New")
     slamTexture:SetAllPoints(slamButton)
     
     -- Set click behavior
@@ -255,8 +255,18 @@ end
 
 -- Check if player has Mortal Strike talent (Arms spec check)
 local function HasMortalStrike()
-    local _, _, _, _, rank = GetTalentInfo(1, 17) -- 1 = Arms tree, 17 = Mortal Strike
+    local _, _, _, _, rank = GetTalentInfo(1, 18) -- 1 = Arms tree, 18 = Mortal Strike
     return rank > 0
+end
+
+-- Check if player has Bloodthirst talent (Fury spec check)
+local function HasBloodthirst()
+    return SNB.HasTalent("Bloodthirst")
+end
+
+-- Function to check if a two-handed weapon is equipped
+local function IsTwoHanderEquipped()
+    return SNB.IsTwoHanderEquipped()
 end
 
 -- Function to update Sweeping Strikes button alpha (from original code)
@@ -321,7 +331,9 @@ function SNB.UpdateWWIconGUI()
     end
     
     -- Check if Slam Priority button should be visible (Arms warriors only)
-    if HasMortalStrike() then
+    local hasBloodthirstone = HasBloodthirst()
+    local hasTwoHandedWeaponone = IsTwoHanderEquipped()
+    if HasMortalStrike() or (hasBloodthirstone and hasTwoHandedWeaponone) then
         visibleButtons = visibleButtons + 1
     end
     
@@ -354,7 +366,7 @@ end
 
 -- Check if player has Mortal Strike talent (Arms spec check)
 local function HasMortalStrike()
-    local _, _, _, _, rank = GetTalentInfo(1, 17) -- 1 = Arms tree, 17 = Mortal Strike
+    local _, _, _, _, rank = GetTalentInfo(1, 18) -- 1 = Arms tree, 17 = Mortal Strike
     return rank > 0
 end
 
@@ -371,13 +383,16 @@ function SNB.UpdateSweepingStrikesButton()
     end
 end
 
--- Function to update Slam Priority button visibility (only show for Arms warriors)
+-- Function to update Slam Priority button visibility (show for Arms warriors or two-handed Fury warriors)
 function SNB.UpdateSlamPriorityVisibility()
     if not WWIconFrame or not WWIconFrame.slamButton then
         return
     end
     
-    if HasMortalStrike() then
+    local hasBloodthirstone = HasBloodthirst()
+    local hasTwoHandedWeaponone = IsTwoHanderEquipped()
+    
+    if HasMortalStrike() or (hasBloodthirstone and hasTwoHandedWeaponone) then
         WWIconFrame.slamButton:Show()
     else
         WWIconFrame.slamButton:Hide()
@@ -643,6 +658,7 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("VARIABLES_LOADED")
 eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+eventFrame:RegisterEvent("UNIT_INVENTORY_CHANGED")
 eventFrame:SetScript("OnEvent", function()
     local event = arg1
     local addonName = arg2
@@ -660,6 +676,12 @@ eventFrame:SetScript("OnEvent", function()
         -- Update button visibility when talents change
         if WWIconFrame then
             SNB.UpdateSweepingStrikesButton()
+            SNB.UpdateSlamPriorityVisibility()
+            SNB.UpdateWWIconGUI()  -- Refresh frame size
+        end
+    elseif event == "UNIT_INVENTORY_CHANGED" and arg1 == "player" then
+        -- Update button visibility when weapon changes (for two-handed Fury detection)
+        if WWIconFrame then
             SNB.UpdateSlamPriorityVisibility()
             SNB.UpdateWWIconGUI()  -- Refresh frame size
         end

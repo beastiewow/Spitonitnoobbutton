@@ -31,34 +31,125 @@ local function GetSlamRemainingTime()
     return 0 -- Slam not being cast or cast has ended
 end
 
+-- Function to check if Elixir of Demonslaying buff is active
+function SNB.HasElixirOfDemonslaying()
+    for i = 0, 31 do
+        local id, cancel = GetPlayerBuff(i, "HELPFUL|HARMFUL|PASSIVE")
+        if id > -1 then
+            local buffID = GetPlayerBuffID(i)
+            if buffID == 11406 then -- Elixir of Demonslaying buff ID
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to check if Mark of the Champion (Argent Dawn Commission) buff is active
+function SNB.HasMarkOfTheChampion()
+    for i = 0, 31 do
+        local id, cancel = GetPlayerBuff(i, "HELPFUL|HARMFUL|PASSIVE")
+        if id > -1 then
+            local buffID = GetPlayerBuffID(i)
+            if buffID == 17670 then -- Argent Dawn Commission buff ID
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Function to check if Consecrated Sharpening Stone is active on weapons
+function SNB.HasConsecratedSharpeningStone()
+    local hasMainHandEnchant, mainHandExpiration, mainHandCharges, hasOffHandEnchant, offHandExpiration, offHandCharges = GetWeaponEnchantInfo()
+    
+    -- Check main hand weapon enchant
+    if hasMainHandEnchant then
+        local mainHandTexture = GetInventoryItemTexture("player", 16)
+        -- Consecrated Sharpening Stone has a specific texture pattern
+        -- You may need to adjust this texture check based on what the actual texture path is
+        if mainHandTexture and string.find(mainHandTexture, "Sharpening") then
+            return true
+        end
+    end
+    
+    -- Check off hand weapon enchant (for dual wield)
+    if hasOffHandEnchant then
+        local offHandTexture = GetInventoryItemTexture("player", 17)
+        if offHandTexture and string.find(offHandTexture, "Sharpening") then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Function to calculate effective attack power including demon slaying bonuses
+function SNB.GetEffectiveAttackPower()
+    local baseAttackPower, posBuff, negBuff = UnitAttackPower("player")
+    local attackPower = baseAttackPower + posBuff + negBuff
+    local bonusAP = 0
+    
+    -- Add bonus AP for demon slaying effects
+    if SNB.HasElixirOfDemonslaying() then
+        bonusAP = bonusAP + 265 -- Elixir of Demonslaying gives +265 AP vs demons
+    end
+    
+    if SNB.HasMarkOfTheChampion() then
+        bonusAP = bonusAP + 150 -- Mark of the Champion gives +150 AP vs undead
+    end
+    
+    if SNB.HasConsecratedSharpeningStone() then
+        bonusAP = bonusAP + 100 -- Consecrated Sharpening Stone gives +100 AP vs undead
+    end
+    
+    return attackPower + bonusAP
+end
+
 -----------------------------
 -- Function for handling the 20% health threshold for Bloodthirst or Execute, with Bloodrage for Enrage optimization
 -----------------------------
 function SNB.CheckAndCastBloodthirstOrExecute()
-    local baseAttackPower, posBuff, negBuff = UnitAttackPower("player")
-    local attackPower = baseAttackPower + posBuff + negBuff
+    local effectiveAttackPower = SNB.GetEffectiveAttackPower()
     local targetHealthPercent = (UnitHealth("target") / UnitHealthMax("target")) * 100
     local currentRage = UnitMana("player") -- Get current rage value
-
     local bdStart, bdDuration, bdEnabled = SNB.GetSpellCooldownById(23894) -- Bloodthirst
-
     -- Calculate Bloodthirst cooldown
     local bdCooldown = bdStart + bdDuration - GetTime()
     if bdCooldown < 0 then bdCooldown = 0 end
-
+    
     -- If the target is below 20% HP, activate Execute/Bloodthirst logic
     if targetHealthPercent <= 20 then
-        -- Condition to use Bloodthirst if attack power > 1800, rage between 30-35, and Bloodthirst is off cooldown
-        if attackPower > 1800 and currentRage >= 30 and currentRage <= 35 and bdCooldown == 0 then
+        -- Condition to use Bloodthirst if effective attack power > 2150, rage between 30-35, and Bloodthirst is off cooldown
+        if effectiveAttackPower > 2150 and currentRage >= 30 and bdCooldown == 0 then
             CastSpellByName("Bloodthirst")
-        -- Otherwise, use Execute if rage >= 10
-        elseif currentRage >= 15 then
+        -- Otherwise, use Execute if rage >= 15
+        elseif currentRage >= 10 then
             CastSpellByName("Execute")
         else
             -- no action
         end
     else
         -- no action
+    end
+end
+
+-----------------------------
+-- Function for handling the 20% health threshold for Execute only (no Bloodthirst or Mortal Strike)
+-----------------------------
+function SNB.CheckAndCastExecuteOnly()
+    local targetHealthPercent = (UnitHealth("target") / UnitHealthMax("target")) * 100
+    local currentRage = UnitMana("player") -- Get current rage value
+    
+    -- If the target is below 20% HP, use Execute if we have enough rage
+    if targetHealthPercent <= 20 then
+        if currentRage >= 15 then
+            CastSpellByName("Execute")
+        else
+            -- no action - not enough rage
+        end
+    else
+        -- no action - target not in execute range
     end
 end
 
@@ -524,31 +615,64 @@ function SNB.ArmsExecuteOld()
     local targetHealthPercent = (UnitHealth("target") / UnitHealthMax("target")) * 100
     local isBoss = UnitClassification("target") == "worldboss" -- Check if target is a boss
     local rage = UnitMana("player")
+    
+    -- Get cooldowns for Mortal Strike, Whirlwind, and Execute
+    local msStart, msDuration = SNB.GetSpellCooldownById(21553) -- Mortal Strike
+    local wwStart, wwDuration = SNB.GetSpellCooldownById(1680)  -- Whirlwind
     local exeStart, exeDuration = SNB.GetSpellCooldownById(20662) -- Execute
+    local msCooldown = (msStart + msDuration) - GetTime()
+    local wwCooldown = (wwStart + wwDuration) - GetTime()
     local exeCooldown = (exeStart + exeDuration) - GetTime()
-
+    
     -- Boss logic
     if isBoss then
         -- Target less than 20% HP
         if targetHealthPercent <= 20 then
-            SpellStopCasting("Slam")
-            CastSpellByName("Execute")
-            return
-        end
-
-        -- Target at or below 5% HP
-        if targetHealthPercent <= 5 and rage >= 15 then
-            SpellStopCasting("Slam")
-            CastSpellByName("Execute")
-            return
+            -- If swing timer > 1.5s, prioritize Mortal Strike and Whirlwind over Execute
+            if st_timer > 1.5 then
+                -- Prioritize Mortal Strike first if off cooldown and have rage
+                if rage >= 30 and msCooldown <= 0.5 then
+                    SpellStopCasting("Slam")
+                    CastSpellByName("Mortal Strike")
+                    return
+                -- Then Whirlwind if Mortal Strike is on cooldown
+                elseif SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 then
+                    SpellStopCasting("Slam")
+                    CastSpellByName("Whirlwind")
+                    return
+                end
+            end
+            -- Use Execute if swing timer <= 1.5s or if MS/WW not available
+            if rage >= 15 then
+                SpellStopCasting("Slam")
+                CastSpellByName("Execute")
+                return
+            end
         end
     end
-
+    
     -- Non-boss logic
-    if not isBoss and targetHealthPercent <= 20 and rage >= 15 then
-        SpellStopCasting("Slam")
-        CastSpellByName("Execute")
-        return
+    if not isBoss and targetHealthPercent <= 20 then
+        -- If swing timer > 1.5s, prioritize Mortal Strike and Whirlwind over Execute
+        if st_timer > 1.5 then
+            -- Prioritize Mortal Strike first if off cooldown and have rage
+            if rage >= 30 and msCooldown <= 0.5 then
+                SpellStopCasting("Slam")
+                CastSpellByName("Mortal Strike")
+                return
+            -- Then Whirlwind if Mortal Strike is on cooldown
+            elseif SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 then
+                SpellStopCasting("Slam")
+                CastSpellByName("Whirlwind")
+                return
+            end
+        end
+        -- Use Execute if swing timer <= 1.5s or if MS/WW not available
+        if rage >= 15 then
+            SpellStopCasting("Slam")
+            CastSpellByName("Execute")
+            return
+        end
     end
 end
 

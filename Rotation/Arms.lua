@@ -1,4 +1,4 @@
--- Unified Arms Single Target Rotation
+﻿-- Unified Arms Single Target Rotation
 -- Toggle function for Battle Shout behavior
 -- Update your ToggleBattleShout function to include alpha updates
 function SNB.ToggleBattleShout()

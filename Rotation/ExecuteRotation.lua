@@ -1,43 +1,49 @@
 -- Queues.lua (General Utility Functions)
 -- This lua is for tracking Heroic Strike and Cleave queuing 
 if not SNB then SNB = {} end -- Initialize the namespace if it doesn't exist
-
--- Initialize the auto execute mode toggle (default to automatic mode)
-if SNB.IsAutoExeMode == nil then
-    SNB.IsAutoExeMode = true
+-- Initialize the execute only mode toggle (default to false - use full rotation)
+if SNB.IsExeOnlyMode == nil then
+    SNB.IsExeOnlyMode = false
 end
-
 -- Ensure pfUI's libcast is checked globally (at the top of your addon)
 if not pfUI or not pfUI.api or not pfUI.api.libcast then
     DEFAULT_CHAT_FRAME:AddMessage("SNB: pfUI libcast not found! Using basic Execute behavior without Slam tracking.")
 end
-
 local libcast = pfUI and pfUI.api and pfUI.api.libcast
 local player = UnitName("player")
 
 -- Function to execute the correct function based on mode and spec
 function SNB.ExecuteMacro()
-    -- Check for Mortal Strike talent to determine Arms spec
+    -- Check for talents to determine spec
     local hasMortalStrike = SNB.HasTalent("Mortal Strike")
+    local hasBloodthirst = SNB.HasTalent("Bloodthirst")
     SNB.debug_print("Executing Execute mode")
     
-    -- Use Arms Execute function with appropriate targeting mode based on toggle
     if hasMortalStrike then
-        if SNB.IsAutoExeMode then
-            SNB.ArmsExecuteHSNoSlamTrack() -- Automatic targeting function
+        -- Arms spec with Mortal Strike
+        if SNB.IsExeOnlyMode then
+            SNB.CheckAndCastExecuteOnly() -- Execute only mode
         else
-            SNB.ArmsExecuteOld() -- Manual mode
+            SNB.ArmsExecuteOld() -- Full rotation with MS/WW priority
+        end
+    elseif hasBloodthirst then
+        -- Fury spec with Bloodthirst
+        if SNB.IsExeOnlyMode then
+            SNB.CheckAndCastExecuteOnly() -- Execute only mode
+        else
+            SNB.CheckAndCastBloodthirstOrExecute() -- Bloodthirst/Execute weaving
         end
     else
-        SNB.CheckAndCastBloodthirstOrExecute()
+        -- No capstone talents (no Bloodthirst or Mortal Strike) - Always Execute only
+        SNB.CheckAndCastExecuteOnly()
     end
 end
 
--- Function to toggle between automatic and manual execute modes
-function SNB.ToggleAutoExecuteMode()
-    SNB.IsAutoExeMode = not SNB.IsAutoExeMode
+-- Function to toggle between full rotation and execute only modes
+function SNB.ToggleExecuteOnlyMode()
+    SNB.IsExeOnlyMode = not SNB.IsExeOnlyMode
     
-    local modeText = SNB.IsAutoExeMode and "Automatic (Auto-targeting)" or "Manual (No auto-targeting)"
+    local modeText = SNB.IsExeOnlyMode and "Execute Only" or "Full Rotation"
     DEFAULT_CHAT_FRAME:AddMessage("SNB: Execute mode set to " .. modeText)
 end
 
@@ -48,10 +54,10 @@ SlashCmdList["EXECUTESWAP"] = function()
     SNB.UpdateExecuteButton()      -- Immediately update the Execute/Cleave icon state after toggling
 end
 
--- New slash command to toggle between automatic and manual execute modes
-SLASH_AUTOEXETOGGLE1 = "/autoexe"
-SlashCmdList["AUTOEXETOGGLE"] = function()
-    SNB.ToggleAutoExecuteMode()
+-- New slash command to toggle between full rotation and execute only modes
+SLASH_EXEONLYTOGGLE1 = "/exeonly"
+SlashCmdList["EXEONLYTOGGLE"] = function()
+    SNB.ToggleExecuteOnlyMode()
 end
 
 SLASH_EXECUTEMACRO1 = "/executemacro"

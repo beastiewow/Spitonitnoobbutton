@@ -33,6 +33,7 @@ Rotation\Execute.lua
 Rotation\DPS.lua
 Rotation\AOE.lua
 Rotation\TankRotation.lua
+Rotation\2hFury.lua
 
 Modules\Shieldbash.lua
 Modules\Pummel.lua
