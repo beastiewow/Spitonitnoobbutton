@@ -92,13 +92,20 @@ function SNB.TwoHandedFury()
         end
     else
         -- Without Flurry: 2.5s cast time, use original timing windows
-        if rage >= 30 and (st_timer < 3.7 and st_timer > 1.6) and bdCooldown > 0.5 then
+        if rage >= 30 and (st_timer < 3.7 and st_timer > 2.4) and bdCooldown > 0.5 then
             SNB.debug_print("Casting Slam without Flurry due to high rage and cooldown proximity")
             CastSpellByName("Slam")
-        elseif rage >= 15 and (st_timer < 3.7 and st_timer > 1.6) and bdCooldown > 1.5 then
+        elseif rage >= 15 and (st_timer < 3.7 and st_timer > 2.4) and bdCooldown > 1.5 then
             SNB.debug_print("Casting Slam without Flurry due to high rage and cooldown proximity")
             CastSpellByName("Slam")
         end
+    end
+
+    -- Heroic Strike logic
+    if not SNB.IsHeroicStrikeQueued() and rage > 90 then
+        CastSpellByName("Heroic Strike")
+    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
+        SpellStopCasting("Heroic Strike")
     end
 end
 
@@ -126,13 +133,13 @@ function SNB.TwoHandedFurySlamPrio()
     local rage = UnitMana("player")
 
     -- Bloodthirst logic - Fixed comment (was "Mortal Strike logic")
-    if rage >= 30 and bdCooldown <= 0.5 and (st_timer < 1.8) then
+    if rage >= 30 and bdCooldown <= 0.5 and (st_timer < 1.6) then
         CastSpellByName("Bloodthirst")
         return
     end
     
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer < 1.8) then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer < 1.6) then
         CastSpellByName("Whirlwind")
         return
     end
@@ -141,16 +148,23 @@ function SNB.TwoHandedFurySlamPrio()
     local hasFlurry = SNB.HasFlurryBuff()
     if hasFlurry then
         -- With Flurry: 1.7s cast time, use tighter timing window
-        if rage >= 30 and (st_timer < 3 and st_timer > 1.6) then
+        if rage >= 15 and (st_timer < 3 and st_timer > 1.6) then
             SNB.debug_print("Casting Slam with Flurry due to high rage")
             CastSpellByName("Slam")
         end
     else
         -- Without Flurry: 2.5s cast time, use original timing window
-        if rage >= 30 and (st_timer < 3.7 and st_timer > 2.3) then
+        if rage >= 15 and (st_timer < 3.7 and st_timer > 2.4) then
             SNB.debug_print("Casting Slam without Flurry due to high rage")
             CastSpellByName("Slam")
         end
+    end
+
+    -- Heroic Strike logic
+    if not SNB.IsHeroicStrikeQueued() and rage > 90 then
+        CastSpellByName("Heroic Strike")
+    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
+        SpellStopCasting("Heroic Strike")
     end
 end
 
@@ -176,7 +190,7 @@ function SNB.TwoHandedFurySlamPrioNoBT()
     local rage = UnitMana("player")
     
     -- Whirlwind logic based on toggle
-    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer < 1.8) then
+    if SNB.isWhirlwindMode and rage >= 25 and wwCooldown <= 0.5 and (st_timer < 1.6) then
         CastSpellByName("Whirlwind")
         return
     end
@@ -185,17 +199,25 @@ function SNB.TwoHandedFurySlamPrioNoBT()
     local hasFlurry = SNB.HasFlurryBuff()
     if hasFlurry then
         -- With Flurry: 1.7s cast time, use tighter timing window
-        if rage >= 30 and (st_timer < 3 and st_timer > 1.6) then
+        if rage >= 15 and (st_timer < 3 and st_timer > 1.6) then
             SNB.debug_print("Casting Slam with Flurry due to high rage")
             CastSpellByName("Slam")
         end
     else
         -- Without Flurry: 2.5s cast time, use original timing window
-        if rage >= 30 and (st_timer < 3.7 and st_timer > 2.3) then
+        if rage >= 15 and (st_timer < 3.7 and st_timer > 2.4) then
             SNB.debug_print("Casting Slam without Flurry due to high rage")
             CastSpellByName("Slam")
         end
     end
+
+    -- Heroic Strike logic
+    if not SNB.IsHeroicStrikeQueued() and rage > 90 and st_timer > 3 then
+        CastSpellByName("Heroic Strike")
+    elseif SNB.IsHeroicStrikeQueued() and rage < 60 then
+        SpellStopCasting("Heroic Strike")
+    end
+
 end
 
 -- AOE Rotation function for Two-Handed Fury Warrior in SNB namespace
