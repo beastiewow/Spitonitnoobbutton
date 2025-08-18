@@ -144,6 +144,7 @@ function SNB.CheckAndCastExecuteOnly()
     -- If the target is below 20% HP, use Execute if we have enough rage
     if targetHealthPercent <= 20 then
         if currentRage >= 15 then
+            SpellStopCasting("Slam")
             CastSpellByName("Execute")
         else
             -- no action - not enough rage
@@ -670,6 +671,27 @@ function SNB.ArmsExecuteOld()
         -- Use Execute if swing timer <= 1.5s or if MS/WW not available
         if rage >= 15 then
             SpellStopCasting("Slam")
+            CastSpellByName("Execute")
+            return
+        end
+    end
+end
+
+-----------------------------
+-- Slam/Execute rotation function - prioritizes Slam when swing timer > 1.6s
+-----------------------------
+function SNB.SlamExecute()
+    local targetHealthPercent = (UnitHealth("target") / UnitHealthMax("target")) * 100
+    local rage = UnitMana("player")
+    
+    -- Only execute below 20% HP
+    if targetHealthPercent <= 20 then
+        -- If swing timer > 1.6s and have rage for Slam, use Slam
+        if st_timer > 1.8 and rage >= 15 then
+            CastSpellByName("Slam")
+            return
+        -- Otherwise use Execute if we have rage
+        elseif rage >= 10 then
             CastSpellByName("Execute")
             return
         end
