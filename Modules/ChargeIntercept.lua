@@ -101,7 +101,6 @@ end
 function SNB.TalentedChargeOrIntercept()
     local hasBloodthirst = SNB.HasTalent("Bloodthirst")
     local hasMortalStrike = SNB.HasTalent("Mortal Strike")
-
     if hasBloodthirst then
         SNB.debug_print("Using regular Charge/Intercept rotation (Bloodthirst).")
         SNB.ChargeOrIntercept()
@@ -109,8 +108,8 @@ function SNB.TalentedChargeOrIntercept()
         SNB.debug_print("Using Charge/Intercept with Sweeping Strikes behavior (Mortal Strike).")
         SNB.ChargeOrInterceptWithSweeping()
     else
-        SNB.debug_print("No relevant talent found, defaulting to Charge/Intercept.")
-        SNB.ChargeOrIntercept()
+        SNB.debug_print("No capstone talents found, using Charge/Intercept with Sweeping Strikes behavior.")
+        SNB.ChargeOrInterceptWithSweeping()
     end
 end
 
@@ -119,4 +118,3 @@ SLASH_CHARGEINTERCEPT1 = "/ci"
 SlashCmdList["CHARGEINTERCEPT"] = function()
     SNB.TalentedChargeOrIntercept()
 end
-
