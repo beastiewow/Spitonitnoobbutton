@@ -16,6 +16,7 @@ SNB.isOverpowerMode = SNB.isOverpowerMode or false
 SNB.isSweepingStrikesMode = SNB.isSweepingStrikesMode or true
 SNB.isSlamPriorityMode = SNB.isSlamPriorityMode or false
 SNB.battleShoutEnabled = SNB.battleShoutEnabled or true
+SNB.IsSlamExeMode = SNB.IsSlamExeMode or false
 
 -- Create the main WWIcon frame
 local WWIconFrame = nil
@@ -157,6 +158,27 @@ local function CreateWWIconFrame()
     -- Store button reference
     WWIconFrame.battleShoutButton = battleShoutButton
 
+    -- Create the Slam Execute button
+    local slamExeButton = CreateFrame("Button", "SNB_SlamExeButton", WWIconFrame)
+    slamExeButton:SetWidth(WWIconSettings.size)
+    slamExeButton:SetHeight(WWIconSettings.size)
+    slamExeButton:SetPoint("LEFT", battleShoutButton, "RIGHT", 5, 0)  -- 5 pixels to the right of Battle Shout
+    slamExeButton:EnableMouse(true)
+
+    -- Add the Slam Execute icon texture
+    local slamExeTexture = slamExeButton:CreateTexture(nil, "BACKGROUND")
+    slamExeTexture:SetTexture("Interface\\Icons\\inv_sword_48")
+    slamExeTexture:SetAllPoints(slamExeButton)
+
+    -- Set click behavior
+    slamExeButton:RegisterForClicks("LeftButtonUp")
+    slamExeButton:SetScript("OnClick", function()
+        SNB.ToggleSlamExecuteMode()
+    end)
+
+    -- Store button reference
+    WWIconFrame.slamExeButton = slamExeButton
+
     -- Force show
     WWIconFrame:Show()
     
@@ -215,6 +237,19 @@ function SNB.UpdateButtonPositions()
             end
             WWIconFrame.battleShoutButton:SetPoint("TOP", anchor, "BOTTOM", 0, -spacing)
         end
+
+        if WWIconFrame.slamExeButton then
+            WWIconFrame.slamExeButton:ClearAllPoints()
+            local anchor = WWIconFrame.whirlwindButton
+            if WWIconFrame.battleShoutButton and WWIconFrame.battleShoutButton:IsShown() then
+                anchor = WWIconFrame.battleShoutButton
+            elseif WWIconFrame.slamButton and WWIconFrame.slamButton:IsShown() then
+                anchor = WWIconFrame.slamButton
+            elseif WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown() then
+                anchor = WWIconFrame.sweepingButton
+            end
+            WWIconFrame.slamExeButton:SetPoint("TOP", anchor, "BOTTOM", 0, -spacing)
+        end
     else
         -- Horizontal layout: left to right
         if WWIconFrame.whirlwindButton then
@@ -244,6 +279,19 @@ function SNB.UpdateButtonPositions()
             end
             WWIconFrame.battleShoutButton:SetPoint("LEFT", anchor, "RIGHT", spacing, 0)
         end
+
+        if WWIconFrame.slamExeButton then
+            WWIconFrame.slamExeButton:ClearAllPoints()
+            local anchor = WWIconFrame.whirlwindButton
+            if WWIconFrame.battleShoutButton and WWIconFrame.battleShoutButton:IsShown() then
+                anchor = WWIconFrame.battleShoutButton
+            elseif WWIconFrame.slamButton and WWIconFrame.slamButton:IsShown() then
+                anchor = WWIconFrame.slamButton
+            elseif WWIconFrame.sweepingButton and WWIconFrame.sweepingButton:IsShown() then
+                anchor = WWIconFrame.sweepingButton
+            end
+            WWIconFrame.slamExeButton:SetPoint("LEFT", anchor, "RIGHT", spacing, 0)
+        end
     end
 end
 
@@ -255,7 +303,13 @@ end
 
 -- Check if player has Mortal Strike talent (Arms spec check)
 local function HasMortalStrike()
-    local _, _, _, _, rank = GetTalentInfo(1, 18) -- 1 = Arms tree, 18 = Mortal Strike
+    local _, _, _, _, rank = GetTalentInfo(1, 18) -- 1 = Arms tree, 17 = Mortal Strike
+    return rank > 0
+end
+
+-- Check if player has Death Wish talent (Fury spec check)
+local function HasDeathWish()
+    local _, _, _, _, rank = GetTalentInfo(2, 12) -- 2 = Fury tree, 12 = Death Wish
     return rank > 0
 end
 
@@ -278,7 +332,31 @@ function SNB.UpdateSweepingStrikesButtonAlpha()
             WWIconFrame.sweepingButton:SetAlpha(0.3)  -- Faded opacity when inactive
         end
     end
-end-- Saved Variables for WWIcon GUI
+end
+
+-- Function to update Slam Execute button alpha
+function SNB.UpdateSlamExeButtonAlpha()
+    if WWIconFrame and WWIconFrame.slamExeButton then
+        if SNB.IsSlamExeMode then
+            WWIconFrame.slamExeButton:SetAlpha(1.0)  -- Full opacity when active
+        else
+            WWIconFrame.slamExeButton:SetAlpha(0.3)  -- Faded opacity when inactive
+        end
+    end
+end
+
+-- Function to update Slam Execute button visibility (show only for Death Wish warriors)
+function SNB.UpdateSlamExeVisibility()
+    if not WWIconFrame or not WWIconFrame.slamExeButton then
+        return
+    end
+    
+    if HasDeathWish() then
+        WWIconFrame.slamExeButton:Show()
+    else
+        WWIconFrame.slamExeButton:Hide()
+    end
+end
 
 -- Add this function for updating the Battle Shout button alpha
 function SNB.UpdateBattleShoutButtonAlpha()
@@ -301,6 +379,7 @@ function SNB.UpdateWWIconGUI()
     -- Update button visibility based on talents
     SNB.UpdateSweepingStrikesButton()
     SNB.UpdateSlamPriorityVisibility()
+    SNB.UpdateSlamExeVisibility()
     
     -- Update button alpha states
     if WWIconFrame.whirlwindButton then
@@ -319,6 +398,10 @@ function SNB.UpdateWWIconGUI()
         SNB.UpdateBattleShoutButtonAlpha()
     end
 
+    if WWIconFrame.slamExeButton then
+        SNB.UpdateSlamExeButtonAlpha()
+    end
+
     -- Calculate frame size based on visible buttons
     local buttonSize = WWIconSettings.size
     local spacing = 5
@@ -334,6 +417,11 @@ function SNB.UpdateWWIconGUI()
     local hasBloodthirstone = HasBloodthirst()
     local hasTwoHandedWeaponone = IsTwoHanderEquipped()
     if HasMortalStrike() or (hasBloodthirstone and hasTwoHandedWeaponone) then
+        visibleButtons = visibleButtons + 1
+    end
+
+    -- Check if Slam Execute button should be visible (Death Wish warriors only)
+    if HasDeathWish() then
         visibleButtons = visibleButtons + 1
     end
     
@@ -356,18 +444,6 @@ function SNB.UpdateWWIconGUI()
     SNB.UpdateButtonPositions()
     
     WWIconFrame:Show()
-end
-
--- Check if player is talented into Sweeping Strikes (from original code)
-local function IsSweepingStrikesTalented()
-    local _, _, _, _, rank = GetTalentInfo(1, 13) -- 1 = Arms tree, 13 = Sweeping Strikes
-    return rank > 0
-end
-
--- Check if player has Mortal Strike talent (Arms spec check)
-local function HasMortalStrike()
-    local _, _, _, _, rank = GetTalentInfo(1, 18) -- 1 = Arms tree, 17 = Mortal Strike
-    return rank > 0
 end
 
 -- Function to update Sweeping Strikes button visibility (from original code)
@@ -507,6 +583,10 @@ local function ResizeWWIconButtons(size)
             if WWIconFrame.slamButton then
                 WWIconFrame.slamButton:SetWidth(size)
                 WWIconFrame.slamButton:SetHeight(size)
+            end
+            if WWIconFrame.slamExeButton then
+                WWIconFrame.slamExeButton:SetWidth(size)
+                WWIconFrame.slamExeButton:SetHeight(size)
             end
         end
         
@@ -677,6 +757,7 @@ eventFrame:SetScript("OnEvent", function()
         if WWIconFrame then
             SNB.UpdateSweepingStrikesButton()
             SNB.UpdateSlamPriorityVisibility()
+            SNB.UpdateSlamExeVisibility()
             SNB.UpdateWWIconGUI()  -- Refresh frame size
         end
     elseif event == "UNIT_INVENTORY_CHANGED" and arg1 == "player" then
